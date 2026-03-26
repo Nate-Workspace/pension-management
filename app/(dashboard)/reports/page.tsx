@@ -1,3 +1,6 @@
+import { ReportsManagement } from "@/components/reports/reports-management";
+
 export default function ReportsPage() {
-  return null;
+  return <ReportsManagement />;
 }
+
