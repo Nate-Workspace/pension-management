@@ -1,3 +1,5 @@
+import { StaffManagement } from "@/components/staff/staff-management";
+
 export default function StaffPage() {
-  return null;
+  return <StaffManagement />;
 }
