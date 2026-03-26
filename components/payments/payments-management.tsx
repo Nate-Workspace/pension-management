@@ -33,11 +33,7 @@ type MethodPoint = {
 const OP_DAY = "2026-03-26";
 
 function formatMoney(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "XOF",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return `${value.toLocaleString("en-US")} Birr`;
 }
 
 function toDayLabel(iso: string): string {

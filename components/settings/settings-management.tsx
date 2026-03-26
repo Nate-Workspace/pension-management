@@ -30,11 +30,7 @@ type BasicConfigForm = {
 };
 
 function toCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "XOF",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return `${value.toLocaleString("en-US")} Birr`;
 }
 
 function computeAveragePriceByType(type: RoomType): number {
@@ -50,12 +46,12 @@ function computeAveragePriceByType(type: RoomType): number {
 
 export function SettingsManagement() {
   const [pensionInfo, setPensionInfo] = useState<PensionInfoForm>({
-    pensionName: "Bego Residence",
-    ownerName: "Bego Owner",
+    pensionName: "Hillside Guest House",
+    ownerName: "Guest House Owner",
     contactPhone: "+221 77 000 9988",
-    contactEmail: "admin@begoresidence.sn",
-    address: "Avenue de la Republique",
-    city: "Dakar",
+    contactEmail: "admin@hillsideguesthouse.org",
+    address: "Bole Brass",
+    city: "Addis Ababa",
   });
 
   const [roomPricing, setRoomPricing] = useState<RoomPricingForm>({
@@ -108,13 +104,13 @@ export function SettingsManagement() {
       <section className="grid gap-4 xl:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4">
-            <h2 className="text-base font-semibold text-slate-900">Pension Information</h2>
+            <h2 className="text-base font-semibold text-slate-900">Guest House Information</h2>
             <p className="mt-1 text-sm text-slate-500">General profile details used across the system.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="space-y-1 sm:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Pension Name</span>
+              <span className="text-sm font-medium text-slate-700">Guest House Name</span>
               <input
                 type="text"
                 value={pensionInfo.pensionName}
@@ -201,10 +197,10 @@ export function SettingsManagement() {
 
           <div className="space-y-3">
             <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Single Room (XOF)</span>
+              <span className="text-sm font-medium text-slate-700">Single Room (Birr)</span>
               <input
                 type="number"
-                min={5000}
+                min={1000}
                 value={roomPricing.single}
                 onChange={(event) => setRoomPricing((prev) => ({ ...prev, single: event.target.value }))}
                 className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
@@ -212,10 +208,10 @@ export function SettingsManagement() {
             </label>
 
             <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Double Room (XOF)</span>
+              <span className="text-sm font-medium text-slate-700">Double Room (Birr)</span>
               <input
                 type="number"
-                min={5000}
+                min={1000}
                 value={roomPricing.double}
                 onChange={(event) => setRoomPricing((prev) => ({ ...prev, double: event.target.value }))}
                 className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
@@ -223,10 +219,10 @@ export function SettingsManagement() {
             </label>
 
             <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">VIP Room (XOF)</span>
+              <span className="text-sm font-medium text-slate-700">VIP Room (Birr)</span>
               <input
                 type="number"
-                min={5000}
+                min={1000}
                 value={roomPricing.vip}
                 onChange={(event) => setRoomPricing((prev) => ({ ...prev, vip: event.target.value }))}
                 className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"

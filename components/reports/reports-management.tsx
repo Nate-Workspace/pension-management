@@ -41,11 +41,7 @@ type PeakDayPoint = {
 const WEEK_DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 function formatMoney(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "XOF",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return `${value.toLocaleString("en-US")} Birr`;
 }
 
 function parseIsoDate(value: string): Date {

@@ -50,11 +50,7 @@ type CheckInItem = {
 const OPERATION_DATE = "2026-03-26";
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "XOF",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return `${amount.toLocaleString("en-US")} Birr`;
 }
 
 function toNumber(value: number | string | readonly (number | string)[] | undefined): number {

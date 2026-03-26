@@ -69,7 +69,7 @@ export function buildDashboardNotifications(): DashboardNotification[] {
       notifications.push({
         id: `payment-${payment.id}`,
         title: "Pending payment",
-        message: `${payment.reference} has ${outstanding.toLocaleString()} XOF outstanding.`,
+        message: `${payment.reference} has ${outstanding.toLocaleString()} Birr outstanding.`,
         category: "payment",
         priority: 0,
       });

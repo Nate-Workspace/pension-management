@@ -55,11 +55,7 @@ function formatDate(value: string): string {
 }
 
 function formatMoney(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "XOF",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return `${value.toLocaleString("en-US")} Birr`;
 }
 
 function bookingStatusLabel(status: BookingStatus): string {

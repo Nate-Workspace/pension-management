@@ -42,11 +42,7 @@ function guestNameById(guestId?: string): string {
 }
 
 function toCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "XOF",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return `${value.toLocaleString("en-US")} Birr`;
 }
 
 function createDefaultFormState(): RoomFormState {
@@ -493,7 +489,7 @@ export function RoomsManagement() {
             </label>
 
             <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Price / Night (XOF)</span>
+              <span className="text-sm font-medium text-slate-700">Price / Night (Birr)</span>
               <input
                 type="number"
                 min={1000}
