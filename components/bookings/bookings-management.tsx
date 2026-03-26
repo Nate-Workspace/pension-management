@@ -1,0 +1,685 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useEffect } from "react";
+
+import { bookings as initialBookings, guests, rooms } from "@/data";
+import type { Booking, BookingStatus, Guest, Room } from "@/data";
+import { DataTable, FormSurface, MetricCard } from "@/components/ui";
+
+type BookingFilter = "all" | BookingStatus;
+
+type BookingFormState = {
+  id?: string;
+  guestId: string;
+  roomId: string;
+  status: BookingStatus;
+  checkInDate: string;
+  checkOutDate: string;
+  source: Booking["source"];
+};
+
+type CalendarDay = {
+  key: string;
+  date: Date;
+  iso: string;
+  isCurrentMonth: boolean;
+};
+
+type CalendarReservation = {
+  id: string;
+  guestName: string;
+  roomNumber: string;
+  status: BookingStatus;
+};
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+function toIsoDate(value: Date): string {
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseIsoDate(value: string): Date {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function formatDate(value: string): string {
+  return parseIsoDate(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "XOF",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function bookingStatusLabel(status: BookingStatus): string {
+  if (status === "confirmed") {
+    return "Confirmed";
+  }
+
+  if (status === "pending") {
+    return "Pending";
+  }
+
+  return "Cancelled";
+}
+
+function bookingStatusStyle(status: BookingStatus): string {
+  if (status === "confirmed") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "pending") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  return "border-rose-200 bg-rose-50 text-rose-700";
+}
+
+function createFormDefaults(): BookingFormState {
+  return {
+    guestId: guests[0]?.id ?? "",
+    roomId: rooms[0]?.id ?? "",
+    status: "confirmed",
+    checkInDate: "2026-03-27",
+    checkOutDate: "2026-03-29",
+    source: "walk-in",
+  };
+}
+
+function createFormFromBooking(booking: Booking): BookingFormState {
+  return {
+    id: booking.id,
+    guestId: booking.guestId,
+    roomId: booking.roomId,
+    status: booking.status,
+    checkInDate: booking.checkInDate,
+    checkOutDate: booking.checkOutDate,
+    source: booking.source,
+  };
+}
+
+function diffNights(checkInDate: string, checkOutDate: string): number {
+  const start = parseIsoDate(checkInDate).getTime();
+  const end = parseIsoDate(checkOutDate).getTime();
+  const dayMs = 1000 * 60 * 60 * 24;
+  return Math.round((end - start) / dayMs);
+}
+
+function createBookingCode(index: number): string {
+  return `BG-2026-AUTO-${String(index).padStart(3, "0")}`;
+}
+
+function getMonthLabel(currentMonth: Date): string {
+  return currentMonth.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function startOfMonthUTC(year: number, monthIndex: number): Date {
+  return new Date(Date.UTC(year, monthIndex, 1));
+}
+
+function addUtcDays(value: Date, days: number): Date {
+  const next = new Date(value);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function generateCalendarDays(viewMonth: Date): CalendarDay[] {
+  const firstDay = startOfMonthUTC(viewMonth.getUTCFullYear(), viewMonth.getUTCMonth());
+  const dayOffset = (firstDay.getUTCDay() + 6) % 7;
+  const gridStart = addUtcDays(firstDay, -dayOffset);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = addUtcDays(gridStart, index);
+    return {
+      key: toIsoDate(date),
+      date,
+      iso: toIsoDate(date),
+      isCurrentMonth: date.getUTCMonth() === viewMonth.getUTCMonth(),
+    };
+  });
+}
+
+function occursOnDay(booking: Booking, dayIso: string): boolean {
+  return dayIso >= booking.checkInDate && dayIso < booking.checkOutDate;
+}
+
+function byId<T extends { id: string }>(items: T[]): Map<string, T> {
+  return new Map(items.map((item) => [item.id, item]));
+}
+
+export function BookingsManagement() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
+
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formState, setFormState] = useState<BookingFormState>(createFormDefaults());
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [viewMonth, setViewMonth] = useState<Date>(() => new Date(Date.UTC(2026, 2, 1)));
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsLoading(false);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  const guestById = useMemo(() => byId<Guest>(guests), []);
+  const roomById = useMemo(() => byId<Room>(rooms), []);
+
+  const visibleBookings = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return bookings.filter((booking) => {
+      if (statusFilter !== "all" && booking.status !== statusFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const guest = guestById.get(booking.guestId);
+      const room = roomById.get(booking.roomId);
+
+      const guestName = guest ? `${guest.firstName} ${guest.lastName}`.toLowerCase() : "";
+      const roomLabel = room ? `room ${room.number}`.toLowerCase() : "";
+
+      return (
+        booking.code.toLowerCase().includes(query) ||
+        guestName.includes(query) ||
+        roomLabel.includes(query)
+      );
+    });
+  }, [bookings, guestById, roomById, search, statusFilter]);
+
+  const metrics = useMemo(() => {
+    const confirmed = bookings.filter((booking) => booking.status === "confirmed").length;
+    const pending = bookings.filter((booking) => booking.status === "pending").length;
+    const cancelled = bookings.filter((booking) => booking.status === "cancelled").length;
+    const monthRevenue = bookings
+      .filter((booking) => booking.status === "confirmed" && booking.checkInDate.startsWith("2026-03"))
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
+
+    return {
+      total: bookings.length,
+      confirmed,
+      pending,
+      cancelled,
+      monthRevenue,
+    };
+  }, [bookings]);
+
+  const calendarDays = useMemo(() => generateCalendarDays(viewMonth), [viewMonth]);
+
+  const reservationsByDay = useMemo(() => {
+    const map = new Map<string, CalendarReservation[]>();
+
+    bookings.forEach((booking) => {
+      if (booking.status === "cancelled") {
+        return;
+      }
+
+      calendarDays.forEach((day) => {
+        if (!occursOnDay(booking, day.iso)) {
+          return;
+        }
+
+        const guest = guestById.get(booking.guestId);
+        const room = roomById.get(booking.roomId);
+
+        const entry: CalendarReservation = {
+          id: booking.id,
+          guestName: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown",
+          roomNumber: room?.number ?? "N/A",
+          status: booking.status,
+        };
+
+        const current = map.get(day.iso) ?? [];
+        map.set(day.iso, [...current, entry]);
+      });
+    });
+
+    return map;
+  }, [bookings, calendarDays, guestById, roomById]);
+
+  const openCreate = () => {
+    setFormError(null);
+    setFormState(createFormDefaults());
+    setIsFormOpen(true);
+  };
+
+  const openEdit = (booking: Booking) => {
+    setFormError(null);
+    setFormState(createFormFromBooking(booking));
+    setIsFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setFormError(null);
+  };
+
+  const saveBooking = () => {
+    const nights = diffNights(formState.checkInDate, formState.checkOutDate);
+
+    if (nights <= 0) {
+      setFormError("Check-out date must be after check-in date.");
+      return;
+    }
+
+    const room = roomById.get(formState.roomId);
+
+    if (!room) {
+      setFormError("Selected room is invalid.");
+      return;
+    }
+
+    const nextAmount = room.pricePerNight * nights;
+
+    const nextBooking: Booking = {
+      id: formState.id ?? `book-local-${bookings.length + 1}`,
+      code: formState.id
+        ? bookings.find((item) => item.id === formState.id)?.code ?? createBookingCode(bookings.length + 1)
+        : createBookingCode(bookings.length + 1),
+      guestId: formState.guestId,
+      roomId: formState.roomId,
+      status: formState.status,
+      checkInDate: formState.checkInDate,
+      checkOutDate: formState.checkOutDate,
+      nights,
+      totalAmount: nextAmount,
+      createdAt:
+        formState.id
+          ? bookings.find((item) => item.id === formState.id)?.createdAt ?? `${formState.checkInDate}T09:00:00Z`
+          : `${formState.checkInDate}T09:00:00Z`,
+      source: formState.source,
+    };
+
+    setBookings((current) => {
+      if (!formState.id) {
+        return [nextBooking, ...current];
+      }
+
+      return current.map((item) => (item.id === formState.id ? nextBooking : item));
+    });
+
+    setIsFormOpen(false);
+    setFormError(null);
+  };
+
+  const cancelBooking = (bookingId: string) => {
+    setBookings((current) =>
+      current.map((booking) => {
+        if (booking.id !== bookingId) {
+          return booking;
+        }
+
+        return {
+          ...booking,
+          status: "cancelled",
+        };
+      }),
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Booking Management</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Track reservation lifecycle, manage changes, and monitor availability in calendar view.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={openCreate}
+          className="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+        >
+          Create Booking
+        </button>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard title="Total Bookings" value={String(metrics.total)} />
+        <MetricCard title="Confirmed" value={String(metrics.confirmed)} />
+        <MetricCard title="Pending" value={String(metrics.pending)} />
+        <MetricCard title="Cancelled" value={String(metrics.cancelled)} />
+        <MetricCard title="Booked Revenue" value={formatMoney(metrics.monthRevenue)} />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by code, guest, room"
+            className="h-10 w-full max-w-sm rounded-md border border-slate-200 px-3 text-sm text-slate-700"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as BookingFilter)}
+            className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+          >
+            <option value="all">All statuses</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="pending">Pending</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <DataTable<Booking>
+          columns={[
+            {
+              key: "code",
+              header: "Booking",
+              render: (booking) => (
+                <div>
+                  <p className="font-medium text-slate-900">{booking.code}</p>
+                  <p className="text-xs text-slate-500">{formatDate(booking.checkInDate)}</p>
+                </div>
+              ),
+            },
+            {
+              key: "guest",
+              header: "Guest",
+              render: (booking) => {
+                const guest = guestById.get(booking.guestId);
+                return guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest";
+              },
+            },
+            {
+              key: "room",
+              header: "Room",
+              align: "center",
+              render: (booking) => `Room ${roomById.get(booking.roomId)?.number ?? "N/A"}`,
+            },
+            {
+              key: "stay",
+              header: "Stay",
+              render: (booking) => (
+                <span className="text-xs text-slate-600">
+                  {formatDate(booking.checkInDate)} - {formatDate(booking.checkOutDate)}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              header: "Status",
+              render: (booking) => (
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${bookingStatusStyle(booking.status)}`}
+                >
+                  {bookingStatusLabel(booking.status)}
+                </span>
+              ),
+            },
+            {
+              key: "amount",
+              header: "Amount",
+              align: "right",
+              render: (booking) => formatMoney(booking.totalAmount),
+            },
+            {
+              key: "actions",
+              header: "Actions",
+              align: "right",
+              render: (booking) => (
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(booking)}
+                    className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cancelBooking(booking.id)}
+                    disabled={booking.status === "cancelled"}
+                    className="h-8 rounded-md border border-rose-200 px-3 text-xs font-medium text-rose-700 enabled:hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ),
+            },
+          ]}
+          data={visibleBookings}
+          getRowKey={(booking) => booking.id}
+          isLoading={isLoading}
+          emptyTitle="No bookings found"
+          emptyDescription="Try adjusting filters or create a new booking."
+        />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-slate-900">Reservation Calendar</h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setViewMonth((current) => startOfMonthUTC(current.getUTCFullYear(), current.getUTCMonth() - 1))
+              }
+              className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Prev
+            </button>
+            <p className="min-w-32 text-center text-sm font-semibold text-slate-800">{getMonthLabel(viewMonth)}</p>
+            <button
+              type="button"
+              onClick={() =>
+                setViewMonth((current) => startOfMonthUTC(current.getUTCFullYear(), current.getUTCMonth() + 1))
+              }
+              className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-2">
+          {WEEKDAYS.map((label) => (
+            <div key={label} className="rounded-md bg-slate-100 py-2 text-center text-xs font-semibold text-slate-600">
+              {label}
+            </div>
+          ))}
+
+          {calendarDays.map((day) => {
+            const dayReservations = reservationsByDay.get(day.iso) ?? [];
+
+            return (
+              <div
+                key={day.key}
+                className={`min-h-24 rounded-lg border p-2 ${
+                  day.isCurrentMonth
+                    ? "border-slate-200 bg-white"
+                    : "border-slate-100 bg-slate-50 text-slate-400"
+                }`}
+              >
+                <p className="text-xs font-semibold">{day.date.getUTCDate()}</p>
+                <div className="mt-1 space-y-1">
+                  {dayReservations.slice(0, 2).map((reservation) => (
+                    <div
+                      key={`${day.key}-${reservation.id}`}
+                      className={`truncate rounded border px-1.5 py-0.5 text-[10px] font-medium ${bookingStatusStyle(
+                        reservation.status,
+                      )}`}
+                      title={`${reservation.guestName} - Room ${reservation.roomNumber}`}
+                    >
+                      {reservation.guestName} - R{reservation.roomNumber}
+                    </div>
+                  ))}
+                  {dayReservations.length > 2 ? (
+                    <p className="text-[10px] font-medium text-slate-500">+{dayReservations.length - 2} more</p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <FormSurface
+        open={isFormOpen}
+        onClose={closeForm}
+        mode="drawer"
+        title={formState.id ? "Edit Booking" : "Create Booking"}
+        description="Update reservation details and status."
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeForm}
+              className="h-10 rounded-md border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveBooking}
+              className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              {formState.id ? "Save Changes" : "Create Booking"}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <label className="space-y-1">
+            <span className="text-sm font-medium text-slate-700">Guest</span>
+            <select
+              value={formState.guestId}
+              onChange={(event) => setFormState((prev) => ({ ...prev, guestId: event.target.value }))}
+              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+            >
+              {guests.map((guest) => (
+                <option key={guest.id} value={guest.id}>
+                  {guest.firstName} {guest.lastName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-sm font-medium text-slate-700">Room</span>
+            <select
+              value={formState.roomId}
+              onChange={(event) => setFormState((prev) => ({ ...prev, roomId: event.target.value }))}
+              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+            >
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  Room {room.number} ({room.type})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Check-in Date</span>
+              <input
+                type="date"
+                value={formState.checkInDate}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    checkInDate: event.target.value,
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Check-out Date</span>
+              <input
+                type="date"
+                value={formState.checkOutDate}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    checkOutDate: event.target.value,
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Status</span>
+              <select
+                value={formState.status}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    status: event.target.value as BookingStatus,
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+              >
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Source</span>
+              <select
+                value={formState.source}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    source: event.target.value as Booking["source"],
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+              >
+                <option value="walk-in">Walk-in</option>
+                <option value="phone">Phone</option>
+                <option value="website">Website</option>
+                <option value="agent">Agent</option>
+              </select>
+            </label>
+          </div>
+
+          {formError ? (
+            <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {formError}
+            </p>
+          ) : null}
+        </div>
+      </FormSurface>
+    </div>
+  );
+}
