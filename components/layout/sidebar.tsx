@@ -17,9 +17,9 @@ export function Sidebar({ items, pathname, onNavigate }: SidebarProps) {
     <aside className="flex h-full w-full flex-col border-r border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-5 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-          Bego Management
+          Manage
         </p>
-        <h1 className="mt-2 text-lg font-semibold text-slate-900">Pension Admin</h1>
+        <h1 className="mt-2 text-lg font-semibold text-slate-900">Hillside Guest House</h1>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
