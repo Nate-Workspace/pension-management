@@ -12,6 +12,7 @@ type DataTableProps<TData> = {
   columns: DataTableColumn<TData>[];
   data: TData[];
   getRowKey: (row: TData, index: number) => string;
+  getRowClassName?: (row: TData, index: number) => string;
   isLoading?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -35,6 +36,7 @@ export function DataTable<TData>({
   columns,
   data,
   getRowKey,
+  getRowClassName,
   isLoading = false,
   emptyTitle = "No records found",
   emptyDescription = "Try adjusting filters or adding a new entry.",
@@ -75,7 +77,10 @@ export function DataTable<TData>({
                   </tr>
                 ))
               : data.map((row, rowIndex) => (
-                  <tr key={getRowKey(row, rowIndex)} className="border-b border-slate-100 last:border-0">
+                  <tr
+                    key={getRowKey(row, rowIndex)}
+                    className={`border-b border-slate-100 last:border-0 ${getRowClassName?.(row, rowIndex) ?? ""}`}
+                  >
                     {columns.map((column) => (
                       <td
                         key={`${column.key}-${getRowKey(row, rowIndex)}`}
