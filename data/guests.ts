@@ -1,0 +1,55 @@
+import type { Guest } from "./models";
+
+export const guests: Guest[] = [
+  {
+    id: "guest-001",
+    firstName: "Musa",
+    lastName: "Diallo",
+    phone: "+221 77 231 8844",
+    nationalId: "SN-ID-2478391",
+    nationality: "Senegal",
+    notes: "Prefers quiet room away from street.",
+  },
+  {
+    id: "guest-002",
+    firstName: "Aminata",
+    lastName: "Ndiaye",
+    phone: "+221 76 908 3341",
+    nationalId: "SN-ID-2390448",
+    nationality: "Senegal",
+  },
+  {
+    id: "guest-003",
+    firstName: "Koffi",
+    lastName: "Mensah",
+    phone: "+233 24 553 9021",
+    nationalId: "GH-PP-9908172",
+    nationality: "Ghana",
+  },
+  {
+    id: "guest-004",
+    firstName: "Leila",
+    lastName: "Boukari",
+    phone: "+227 93 561 700",
+    nationalId: "NE-ID-104992",
+    nationality: "Niger",
+    notes: "Arriving late after 20:00.",
+  },
+  {
+    id: "guest-005",
+    firstName: "Fatou",
+    lastName: "Sow",
+    phone: "+221 70 445 1192",
+    nationalId: "SN-ID-3017755",
+    nationality: "Senegal",
+  },
+  {
+    id: "guest-006",
+    firstName: "David",
+    lastName: "Kouassi",
+    phone: "+225 07 12 34 55 21",
+    nationalId: "CI-PP-8052264",
+    nationality: "Ivory Coast",
+    notes: "Needs invoice for company reimbursement.",
+  },
+];
