@@ -36,11 +36,16 @@ export function FormSurface({
 
   const panelPositionClass =
     mode === "drawer"
-      ? "ml-auto flex h-full items-stretch"
+      ? "flex h-full w-full items-stretch justify-end"
       : "flex min-h-full items-center justify-center p-4";
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="fixed inset-0 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <button
         type="button"
         aria-label="Close form"
@@ -49,28 +54,42 @@ export function FormSurface({
       />
 
       <div className={`relative ${panelPositionClass}`}>
-        <section className={`${panelBaseClass} ${widthClassName ?? ""} bg-white shadow-xl`}>
-          <header className="border-b border-slate-200 px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-                {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+        <section
+          className={`${panelBaseClass} ${widthClassName ?? ""} bg-white shadow-xl`}
+        >
+          <div>
+            <header className="border-b border-slate-200 px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {title}
+                  </h2>
+                  {description ? (
+                    <p className="mt-1 text-sm text-slate-500">{description}</p>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100"
+                  aria-label="Close"
+                >
+                  <span aria-hidden="true">x</span>
+                </button>
               </div>
+            </header>
 
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100"
-                aria-label="Close"
-              >
-                <span aria-hidden="true">x</span>
-              </button>
+            <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+              {children}
             </div>
-          </header>
+          </div>
 
-          <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
-
-          {footer ? <footer className="border-t border-slate-200 px-5 py-4">{footer}</footer> : null}
+          {footer ? (
+            <footer className="border-t border-slate-200 px-5 py-4">
+              {footer}
+            </footer>
+          ) : null}
         </section>
       </div>
     </div>
