@@ -147,10 +147,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
           <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-              BO
+              NI
             </div>
             <div className="hidden leading-tight sm:block">
-              <p className="text-sm font-medium text-slate-900">Bego Owner</p>
+              <p className="text-sm font-medium text-slate-900">Nate I</p>
               <p className="text-xs text-slate-500">Administrator</p>
             </div>
           </div>

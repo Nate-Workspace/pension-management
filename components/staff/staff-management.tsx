@@ -88,7 +88,7 @@ export function StaffManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [selectedStaffId, setSelectedStaffId] = useState<string>(initialStaff[0]?.id ?? "");
+  const [selectedStaffId] = useState<string>(initialStaff[0]?.id ?? "");
 
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const [taskForm, setTaskForm] = useState<TaskFormState>(taskDefaults(initialStaff[0]?.id ?? ""));
@@ -300,13 +300,13 @@ export function StaffManagement() {
                 align: "right",
                 render: (member) => (
                   <div className="flex justify-end gap-2">
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => setSelectedStaffId(member.id)}
                       className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
                     >
                       View Tasks
-                    </button>
+                    </button> */}
                     <button
                       type="button"
                       onClick={() => openTaskDrawer(member.id)}

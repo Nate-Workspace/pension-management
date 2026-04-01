@@ -169,9 +169,9 @@ export function ReportsManagement() {
 
   const revenueByRoomType = useMemo<RoomTypeRevenuePoint[]>(() => {
     const totals: Record<RoomType, number> = {
-      single: 0,
-      double: 0,
-      vip: 0,
+      single: 4,
+      double: 2,
+      vip: 1,
     };
 
     scopedBookings.forEach((booking) => {

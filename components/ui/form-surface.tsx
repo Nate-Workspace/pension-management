@@ -55,7 +55,7 @@ export function FormSurface({
 
       <div className={`relative ${panelPositionClass}`}>
         <section
-          className={`${panelBaseClass} ${widthClassName ?? ""} bg-white shadow-xl`}
+          className={`${panelBaseClass} ${widthClassName ?? ""} bg-white shadow-xl flex flex-col itmes-start justify-between`}
         >
           <div>
             <header className="border-b border-slate-200 px-5 py-4">
