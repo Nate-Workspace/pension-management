@@ -14,8 +14,8 @@ import {
   YAxis,
 } from "recharts";
 
-import { bookings, rooms } from "@/data";
 import type { Booking, RoomType } from "@/data";
+import { useOperationsData } from "@/components/providers/operations-provider";
 import { ChartWrapper, MetricCard } from "@/components/ui";
 
 type OccupancyPoint = {
@@ -110,24 +110,12 @@ function shortDateLabel(isoDate: string): string {
   });
 }
 
-function clampNightsInRange(booking: Booking, startDate: string, endDate: string): number {
-  const overlapStart = booking.checkInDate > startDate ? booking.checkInDate : startDate;
-  const overlapEnd = booking.checkOutDate < endDate ? booking.checkOutDate : endDate;
-
-  const start = parseIsoDate(overlapStart).getTime();
-  const end = parseIsoDate(overlapEnd).getTime();
-
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const rawDays = Math.floor((end - start) / msPerDay);
-
-  return Math.max(rawDays, 0);
-}
-
 function isDateInRange(day: string, startDate: string, endDate: string): boolean {
   return day >= startDate && day <= endDate;
 }
 
 export function ReportsManagement() {
+  const { bookings, payments, rooms } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState("2026-03-20");
   const [endDate, setEndDate] = useState("2026-04-02");
@@ -137,7 +125,8 @@ export function ReportsManagement() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), []);
+  const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
+  const bookingById = useMemo(() => new Map(bookings.map((booking) => [booking.id, booking])), [bookings]);
 
   const validRange = startDate <= endDate;
 
@@ -178,29 +167,33 @@ export function ReportsManagement() {
       vip: 0,
     };
 
-    scopedBookings.forEach((booking) => {
+    payments.forEach((payment) => {
+      const paidDay = payment.paidAt?.slice(0, 10);
+
+      if (!paidDay || !isDateInRange(paidDay, startDate, endDate)) {
+        return;
+      }
+
+      const booking = bookingById.get(payment.bookingId);
+
+      if (!booking || booking.status === "cancelled") {
+        return;
+      }
+
       const room = roomById.get(booking.roomId);
 
       if (!room) {
         return;
       }
 
-      const inRangeNights = clampNightsInRange(booking, startDate, endDate);
-
-      if (inRangeNights <= 0 || booking.nights <= 0) {
-        return;
-      }
-
-      // Prorate booking revenue by overlap nights to keep room-type revenue consistent with booking totals.
-      const nightlyRevenue = booking.totalAmount / booking.nights;
-      totals[room.type] += nightlyRevenue * inRangeNights;
+      totals[room.type] += payment.amount;
     });
 
     return (["single", "double", "vip"] as const).map((roomType) => ({
       roomType: labelForRoomType(roomType),
       revenue: totals[roomType],
     }));
-  }, [endDate, roomById, scopedBookings, startDate]);
+  }, [bookingById, endDate, payments, roomById, startDate]);
 
   const mostBookedRooms = useMemo<MostBookedRoomPoint[]>(() => {
     const counts = new Map<string, number>();

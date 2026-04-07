@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { bookings as initialBookings, guests as initialGuests, rooms as initialRooms } from "@/data";
 import type { Booking, Guest, Room } from "@/data";
 import { DataTable, FormSurface, MetricCard, StatusBadge } from "@/components/ui";
+import { overlapsRange } from "@/lib/operations";
 
 type GuestFormState = {
   firstName: string;
@@ -81,15 +82,6 @@ function generateBookingCode(index: number): string {
 
 function isBookingActive(booking: Booking): boolean {
   return booking.status === "confirmed" && booking.checkInDate <= TODAY && booking.checkOutDate > TODAY;
-}
-
-function overlapsRange(
-  checkInDate: string,
-  checkOutDate: string,
-  otherCheckInDate: string,
-  otherCheckOutDate: string,
-): boolean {
-  return checkInDate < otherCheckOutDate && checkOutDate > otherCheckInDate;
 }
 
 export function GuestsManagement() {

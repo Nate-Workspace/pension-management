@@ -3,9 +3,17 @@
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 
-import { bookings as initialBookings, guests, rooms as initialRooms } from "@/data";
 import type { Booking, BookingStatus, Guest, Room } from "@/data";
+import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard } from "@/components/ui";
+import {
+  derivePaymentStatus,
+  diffNights,
+  isBookingActiveOn,
+  overlapsRange,
+  parseIsoDate,
+  toIsoDate,
+} from "@/lib/operations";
 
 type BookingFilter = "all" | BookingStatus;
 
@@ -35,17 +43,6 @@ type CalendarReservation = {
 };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
-
-function toIsoDate(value: Date): string {
-  const year = value.getUTCFullYear();
-  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(value.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseIsoDate(value: string): Date {
-  return new Date(`${value}T00:00:00Z`);
-}
 
 function formatDate(value: string): string {
   return parseIsoDate(value).toLocaleDateString("en-US", {
@@ -83,10 +80,10 @@ function bookingStatusStyle(status: BookingStatus): string {
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
-function createFormDefaults(): BookingFormState {
+function createFormDefaults(guestList: Guest[], roomList: Room[]): BookingFormState {
   return {
-    guestId: guests[0]?.id ?? "",
-    roomId: initialRooms[0]?.id ?? "",
+    guestId: guestList[0]?.id ?? "",
+    roomId: roomList[0]?.id ?? "",
     status: "confirmed",
     checkInDate: "2026-03-27",
     checkOutDate: "2026-03-29",
@@ -106,13 +103,6 @@ function createFormFromBooking(booking: Booking): BookingFormState {
     paidAmount: String(booking.paidAmount),
     source: booking.source,
   };
-}
-
-function diffNights(checkInDate: string, checkOutDate: string): number {
-  const start = parseIsoDate(checkInDate).getTime();
-  const end = parseIsoDate(checkOutDate).getTime();
-  const dayMs = 1000 * 60 * 60 * 24;
-  return Math.round((end - start) / dayMs);
 }
 
 function createBookingCode(index: number): string {
@@ -161,85 +151,15 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
 }
 
-function overlapsRange(
-  checkInDate: string,
-  checkOutDate: string,
-  otherCheckInDate: string,
-  otherCheckOutDate: string,
-): boolean {
-  return checkInDate < otherCheckOutDate && checkOutDate > otherCheckInDate;
-}
-
-function derivePaymentStatus(totalAmount: number, paidAmount: number): Booking["paymentStatus"] {
-  if (paidAmount <= 0) {
-    return "unpaid";
-  }
-
-  if (paidAmount >= totalAmount) {
-    return "paid";
-  }
-
-  return "partial";
-}
-
-function isBookingActiveOn(day: string, booking: Booking): boolean {
-  return booking.status !== "cancelled" && booking.checkInDate <= day && booking.checkOutDate > day;
-}
-
-function deriveRoomsFromBookings(
-  baseRooms: Room[],
-  bookingList: Booking[],
-  cleaningRoomIds: Set<string>,
-  operationDay: string,
-): Room[] {
-  const activeBookingByRoomId = new Map<string, Booking>();
-
-  bookingList.forEach((booking) => {
-    if (isBookingActiveOn(operationDay, booking)) {
-      activeBookingByRoomId.set(booking.roomId, booking);
-    }
-  });
-
-  return baseRooms.map((room) => {
-    const activeBooking = activeBookingByRoomId.get(room.id);
-
-    if (activeBooking) {
-      return {
-        ...room,
-        status: "occupied",
-        currentGuestId: activeBooking.guestId,
-      };
-    }
-
-    if (cleaningRoomIds.has(room.id)) {
-      return {
-        ...room,
-        status: "cleaning",
-        currentGuestId: undefined,
-      };
-    }
-
-    return {
-      ...room,
-      status: room.status === "maintenance" ? "maintenance" : "available",
-      currentGuestId: undefined,
-    };
-  });
-}
-
 export function BookingsManagement() {
+  const { bookings, guests, rooms, operationDay, setBookings, setCleaningRoomIds } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
-  const [operationDay] = useState<string>(() => toIsoDate(new Date()));
-  const [cleaningRoomIds, setCleaningRoomIds] = useState<Set<string>>(
-    () => new Set(initialRooms.filter((room) => room.status === "cleaning").map((room) => room.id)),
-  );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formState, setFormState] = useState<BookingFormState>(createFormDefaults());
+  const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults(guests, rooms));
   const [formError, setFormError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -255,11 +175,7 @@ export function BookingsManagement() {
     };
   }, []);
 
-  const guestById = useMemo(() => byId<Guest>(guests), []);
-  const rooms = useMemo(
-    () => deriveRoomsFromBookings(initialRooms, bookings, cleaningRoomIds, operationDay),
-    [bookings, cleaningRoomIds, operationDay],
-  );
+  const guestById = useMemo(() => byId<Guest>(guests), [guests]);
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
   const visibleBookings = useMemo(() => {
@@ -341,7 +257,7 @@ export function BookingsManagement() {
   const openCreate = () => {
     setFormError(null);
     setActionMessage(null);
-    setFormState(createFormDefaults());
+    setFormState(createFormDefaults(guests, rooms));
     setIsFormOpen(true);
   };
 

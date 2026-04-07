@@ -14,9 +14,15 @@ import {
   YAxis,
 } from "recharts";
 
-import { bookings, guests, payments, rooms } from "@/data";
 import type { Payment, PaymentMethod } from "@/data";
+import { useOperationsData } from "@/components/providers/operations-provider";
 import { ChartWrapper, DataTable, MetricCard } from "@/components/ui";
+import {
+  getCollectedForDay,
+  getCollectedForMonth,
+  getOutstandingPayments,
+  getPaymentIssueCounts,
+} from "@/lib/operations";
 
 type MethodFilter = "all" | PaymentMethod;
 
@@ -29,8 +35,6 @@ type MethodPoint = {
   method: string;
   value: number;
 };
-
-const OP_DAY = "2026-03-26";
 
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
@@ -78,6 +82,7 @@ function paymentStatusLabel(status: Payment["status"]): string {
 }
 
 export function PaymentsManagement() {
+  const { bookings, guests, payments, rooms, operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
@@ -87,8 +92,8 @@ export function PaymentsManagement() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const guestById = useMemo(() => new Map(guests.map((item) => [item.id, item])), []);
-  const roomById = useMemo(() => new Map(rooms.map((item) => [item.id, item])), []);
+  const guestById = useMemo(() => new Map(guests.map((item) => [item.id, item])), [guests]);
+  const roomById = useMemo(() => new Map(rooms.map((item) => [item.id, item])), [rooms]);
 
   const paidByBooking = useMemo(() => {
     return payments.reduce<Map<string, number>>((map, payment) => {
@@ -96,7 +101,7 @@ export function PaymentsManagement() {
       map.set(payment.bookingId, current + payment.amount);
       return map;
     }, new Map<string, number>());
-  }, []);
+  }, [payments]);
 
   const paymentRows = useMemo(() => {
     return payments
@@ -121,7 +126,7 @@ export function PaymentsManagement() {
         const rightDate = right.paidDate ?? "0000-00-00";
         return rightDate.localeCompare(leftDate);
       });
-  }, [guestById, paidByBooking, roomById]);
+  }, [bookings, guestById, paidByBooking, payments, roomById]);
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -145,44 +150,33 @@ export function PaymentsManagement() {
   }, [methodFilter, paymentRows, query]);
 
   const summaries = useMemo(() => {
-    const activeBookings = bookings.filter((booking) => booking.status !== "cancelled");
+    const monthPrefix = operationDay.slice(0, 7);
+    const counts = getPaymentIssueCounts(bookings);
 
-    const dailyCollected = activeBookings
-      .filter((booking) => booking.createdAt.slice(0, 10) === OP_DAY)
-      .reduce((sum, booking) => sum + booking.paidAmount, 0);
-
-    const monthPrefix = OP_DAY.slice(0, 7);
-
-    const monthlyCollected = activeBookings
-      .filter((booking) => booking.createdAt.startsWith(monthPrefix))
-      .reduce((sum, booking) => sum + booking.paidAmount, 0);
-
-    const unpaidCount = activeBookings.filter((booking) => booking.paymentStatus === "unpaid").length;
-    const partialCount = activeBookings.filter((booking) => booking.paymentStatus === "partial").length;
-    const outstandingTotal = activeBookings.reduce((sum, booking) => sum + booking.remainingAmount, 0);
+    const dailyCollected = getCollectedForDay(bookings, operationDay);
+    const monthlyCollected = getCollectedForMonth(bookings, monthPrefix);
+    const outstandingTotal = getOutstandingPayments(bookings);
 
     return {
       dailyCollected,
       monthlyCollected,
-      unpaidCount,
-      partialCount,
+      unpaidCount: counts.unpaid,
+      partialCount: counts.partial,
       outstandingTotal,
     };
-  }, []);
+  }, [bookings, operationDay]);
 
   const dailyTrend = useMemo<DailyPoint[]>(() => {
     return Array.from({ length: 7 }, (_, index) => {
-      const day = addDays(OP_DAY, index - 6);
-      const value = bookings
-        .filter((booking) => booking.status !== "cancelled" && booking.createdAt.slice(0, 10) === day)
-        .reduce((sum, booking) => sum + booking.paidAmount, 0);
+      const day = addDays(operationDay, index - 6);
+      const value = getCollectedForDay(bookings, day);
 
       return {
         label: toDayLabel(day),
         value,
       };
     });
-  }, []);
+  }, [bookings, operationDay]);
 
   const methodTrend = useMemo<MethodPoint[]>(() => {
     const cash = payments

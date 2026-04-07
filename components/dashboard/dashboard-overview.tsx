@@ -14,9 +14,10 @@ import {
   YAxis,
 } from "recharts";
 
-import { bookings, guests, rooms } from "@/data";
 import type { BookingStatus, Room } from "@/data";
+import { useOperationsData } from "@/components/providers/operations-provider";
 import { ChartWrapper, DataTable, MetricCard, StatusBadge } from "@/components/ui";
+import { getCollectedForDay, getCollectedForMonth, getOutstandingPayments } from "@/lib/operations";
 
 type OccupancyPoint = {
   label: string;
@@ -54,8 +55,6 @@ type AlertRow = {
   detail: string;
   status: string;
 };
-
-const OPERATION_DATE = "2026-03-26";
 
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString("en-US")} Birr`;
@@ -151,6 +150,7 @@ function alertCategoryLabel(category: AlertRow["category"]): string {
 }
 
 export function DashboardOverview() {
+  const { bookings, guests, rooms, operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -163,28 +163,22 @@ export function DashboardOverview() {
     };
   }, []);
 
-  const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), []);
-  const guestById = useMemo(() => new Map(guests.map((guest) => [guest.id, guest])), []);
+  const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
+  const guestById = useMemo(() => new Map(guests.map((guest) => [guest.id, guest])), [guests]);
 
   const metrics = useMemo(() => {
-    const activeBookings = bookings.filter((booking) => booking.status !== "cancelled");
     const totalRooms = rooms.length;
     const occupiedRooms = rooms.filter((room) => room.status === "occupied").length;
     const availableRooms = rooms.filter((room) => room.status === "available").length;
     const cleaningRooms = rooms.filter((room) => room.status === "cleaning").length;
 
-    const todayRevenue = activeBookings
-      .filter((booking) => booking.createdAt.slice(0, 10) === OPERATION_DATE)
-      .reduce((sum, booking) => sum + booking.paidAmount, 0);
+    const todayRevenue = getCollectedForDay(bookings, operationDay);
 
-    const monthPrefix = OPERATION_DATE.slice(0, 7);
+    const monthPrefix = operationDay.slice(0, 7);
 
-    const monthlyRevenue = activeBookings
-      .filter((booking) => booking.createdAt.startsWith(monthPrefix))
-      .reduce((sum, booking) => sum + booking.paidAmount, 0);
+    const monthlyRevenue = getCollectedForMonth(bookings, monthPrefix);
 
-    const outstandingPayments = activeBookings
-      .reduce((sum, booking) => sum + booking.remainingAmount, 0);
+    const outstandingPayments = getOutstandingPayments(bookings);
 
     return {
       totalRooms,
@@ -196,11 +190,11 @@ export function DashboardOverview() {
       outstandingPayments,
       occupancyRate: Math.round((occupiedRooms / totalRooms) * 100),
     };
-  }, []);
+  }, [bookings, operationDay, rooms]);
 
   const occupancySeries = useMemo<OccupancyPoint[]>(() => {
     return Array.from({ length: 7 }, (_, index) => {
-      const day = addDays(OPERATION_DATE, index - 6);
+      const day = addDays(operationDay, index - 6);
       const occupiedCount = bookings.filter(
         (booking) => booking.status === "confirmed" && isDateInsideStay(day, booking.checkInDate, booking.checkOutDate),
       ).length;
@@ -210,11 +204,11 @@ export function DashboardOverview() {
         occupancyRate: Math.round((occupiedCount / rooms.length) * 100),
       };
     });
-  }, []);
+  }, [bookings, operationDay, rooms.length]);
 
   const revenueSeries = useMemo<RevenuePoint[]>(() => {
     return Array.from({ length: 7 }, (_, index) => {
-      const day = addDays(OPERATION_DATE, index - 6);
+      const day = addDays(operationDay, index - 6);
       const revenue = bookings
         .filter((booking) => booking.status !== "cancelled" && booking.createdAt.slice(0, 10) === day)
         .reduce((sum, booking) => sum + booking.paidAmount, 0);
@@ -224,7 +218,7 @@ export function DashboardOverview() {
         revenue,
       };
     });
-  }, []);
+  }, [bookings, operationDay]);
 
   const recentBookingRows = useMemo<RecentBookingRow[]>(() => {
     return [...bookings]
@@ -244,11 +238,11 @@ export function DashboardOverview() {
           checkInDate: booking.checkInDate,
         };
       });
-  }, [guestById, roomById]);
+  }, [bookings, guestById, roomById]);
 
   const recentCheckIns = useMemo<CheckInItem[]>(() => {
     return bookings
-      .filter((booking) => booking.status === "confirmed" && booking.checkInDate >= OPERATION_DATE)
+      .filter((booking) => booking.status === "confirmed" && booking.checkInDate >= operationDay)
       .sort((left, right) => left.checkInDate.localeCompare(right.checkInDate))
       .slice(0, 5)
       .map((booking) => {
@@ -264,11 +258,11 @@ export function DashboardOverview() {
           checkOutDate: booking.checkOutDate,
         };
       });
-  }, [guestById, roomById]);
+  }, [bookings, guestById, operationDay, roomById]);
 
   const alerts = useMemo<AlertRow[]>(() => {
     const checkoutTodayAlerts: AlertRow[] = bookings
-      .filter((booking) => booking.status !== "cancelled" && booking.checkOutDate === OPERATION_DATE)
+      .filter((booking) => booking.status !== "cancelled" && booking.checkOutDate === operationDay)
       .map((booking) => {
         const guest = guestById.get(booking.guestId);
         const room = roomById.get(booking.roomId);
@@ -277,7 +271,7 @@ export function DashboardOverview() {
           id: `checkout-${booking.id}`,
           category: "checkout",
           subject: guest ? `${guest.firstName} ${guest.lastName}` : booking.guest.name,
-          detail: `Room ${room?.number ?? "N/A"} checks out today (${dateLabel(OPERATION_DATE)})`,
+          detail: `Room ${room?.number ?? "N/A"} checks out today (${dateLabel(operationDay)})`,
           status: statusLabel(booking.status),
         };
       });
@@ -311,7 +305,7 @@ export function DashboardOverview() {
       }));
 
     return [...checkoutTodayAlerts, ...paymentAlerts, ...cleaningRoomAlerts];
-  }, [guestById, roomById]);
+  }, [bookings, guestById, operationDay, roomById, rooms]);
 
   return (
     <div className="space-y-6">
@@ -346,12 +340,12 @@ export function DashboardOverview() {
         <MetricCard
           title="Today's Revenue"
           value={isLoading ? "--" : formatCurrency(metrics.todayRevenue)}
-          description={`Operational date: ${dateLabel(OPERATION_DATE)}`}
+          description={`Operational date: ${dateLabel(operationDay)}`}
         />
         <MetricCard
           title="Monthly Revenue"
           value={isLoading ? "--" : formatCurrency(metrics.monthlyRevenue)}
-          description={`Collected in ${monthLabel(OPERATION_DATE.slice(0, 7))}`}
+          description={`Collected in ${monthLabel(operationDay.slice(0, 7))}`}
         />
         <MetricCard
           title="Outstanding Payments"
