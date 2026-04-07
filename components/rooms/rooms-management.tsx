@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 
-import { guests, rooms as initialRooms } from "@/data";
-import type { Guest, Room, RoomType } from "@/data";
+import { rooms as initialRooms } from "@/data";
+import type { Room, RoomType } from "@/data";
 import { DataTable, FormSurface, MetricCard, StatusBadge } from "@/components/ui";
 import { ROOM_STATUS_LABELS, type RoomStatus } from "@/lib/types/status";
 
@@ -18,7 +18,6 @@ type RoomFormState = {
   status: RoomStatus;
   capacity: string;
   pricePerNight: string;
-  currentGuestId: string;
 };
 
 const ROOM_TYPES: RoomType[] = ["single", "double", "vip"];
@@ -30,15 +29,6 @@ function roomTypeLabel(type: RoomType): string {
   }
 
   return `${type.slice(0, 1).toUpperCase()}${type.slice(1)}`;
-}
-
-function guestNameById(guestId?: string): string {
-  if (!guestId) {
-    return "Unassigned";
-  }
-
-  const guest = guests.find((item) => item.id === guestId);
-  return guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest";
 }
 
 function toCurrency(value: number): string {
@@ -53,7 +43,6 @@ function createDefaultFormState(): RoomFormState {
     status: "available",
     capacity: "1",
     pricePerNight: "25000",
-    currentGuestId: "",
   };
 }
 
@@ -66,18 +55,10 @@ function createFormStateFromRoom(room: Room): RoomFormState {
     status: room.status,
     capacity: String(room.capacity),
     pricePerNight: String(room.pricePerNight),
-    currentGuestId: room.currentGuestId ?? "",
   };
 }
 
 function sanitizeRoomForStatus(room: Room): Room {
-  if (room.status !== "occupied") {
-    return {
-      ...room,
-      currentGuestId: undefined,
-    };
-  }
-
   return room;
 }
 
@@ -108,10 +89,6 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 
   if (duplicate) {
     return `Room ${formState.number.trim()} already exists.`;
-  }
-
-  if (formState.status === "occupied" && !formState.currentGuestId) {
-    return "Occupied rooms must have an assigned guest.";
   }
 
   return null;
@@ -191,30 +168,6 @@ export function RoomsManagement() {
     );
   };
 
-  const handleAssignGuest = (roomId: string, guestId: string) => {
-    setRooms((currentRooms) =>
-      currentRooms.map((room) => {
-        if (room.id !== roomId) {
-          return room;
-        }
-
-        if (!guestId) {
-          return {
-            ...room,
-            currentGuestId: undefined,
-            status: room.status === "occupied" ? "available" : room.status,
-          };
-        }
-
-        return {
-          ...room,
-          currentGuestId: guestId,
-          status: "occupied",
-        };
-      }),
-    );
-  };
-
   const handleSaveRoom = () => {
     const error = validateRoomForm(formState, rooms);
 
@@ -239,7 +192,6 @@ export function RoomsManagement() {
       capacity,
       price: pricePerNight,
       pricePerNight,
-      currentGuestId: formState.currentGuestId || undefined,
     });
 
     setRooms((currentRooms) => {
@@ -288,9 +240,9 @@ export function RoomsManagement() {
       render: (room: Room) => <StatusBadge status={room.status} />,
     },
     {
-      key: "guest",
-      header: "Assigned Guest",
-      render: (room: Room) => guestNameById(room.currentGuestId),
+      key: "occupancy",
+      header: "Occupancy",
+      render: (room: Room) => (room.status === "occupied" ? "Occupied" : "Not occupied"),
     },
     {
       key: "quick-actions",
@@ -306,20 +258,6 @@ export function RoomsManagement() {
             {ROOM_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {ROOM_STATUS_LABELS[status]}
-              </option>
-            ))}
-          </select>
-
-          <select
-            aria-label={`Assign guest to room ${room.number}`}
-            value={room.currentGuestId ?? ""}
-            onChange={(event) => handleAssignGuest(room.id, event.target.value)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
-          >
-            <option value="">No guest</option>
-            {guests.map((guest: Guest) => (
-              <option key={guest.id} value={guest.id}>
-                {guest.firstName} {guest.lastName}
               </option>
             ))}
           </select>
@@ -342,7 +280,7 @@ export function RoomsManagement() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Room Management</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Manage room inventory, update statuses, and assign guests quickly.
+            Manage room inventory and update room operational statuses.
           </p>
         </div>
 
@@ -397,7 +335,7 @@ export function RoomsManagement() {
         onClose={closeDrawer}
         mode="drawer"
         title={formState.id ? `Edit Room ${formState.number}` : "Add New Room"}
-        description="Update room details, status, and guest assignment."
+        description="Update room details and operational status."
         footer={
           <div className="flex items-center justify-end gap-2">
             <button
@@ -504,24 +442,6 @@ export function RoomsManagement() {
               />
             </label>
           </div>
-
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Assign Guest</span>
-            <select
-              value={formState.currentGuestId}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, currentGuestId: event.target.value }))
-              }
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
-            >
-              <option value="">No guest</option>
-              {guests.map((guest) => (
-                <option key={guest.id} value={guest.id}>
-                  {guest.firstName} {guest.lastName}
-                </option>
-              ))}
-            </select>
-          </label>
 
           {formError ? (
             <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

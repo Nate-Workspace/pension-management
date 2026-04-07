@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/preserve-manual-memoization */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -38,7 +39,15 @@ type PeakDayPoint = {
   count: number;
 };
 
-const WEEK_DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const WEEK_DAY_LABELS = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const;
 
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
@@ -86,7 +95,9 @@ function labelForRoomType(type: RoomType): string {
   return `${type.slice(0, 1).toUpperCase()}${type.slice(1)}`;
 }
 
-function toNumber(value: number | string | readonly (number | string)[] | undefined): number {
+function toNumber(
+  value: number | string | readonly (number | string)[] | undefined,
+): number {
   if (Array.isArray(value)) {
     return toNumber(value[0]);
   }
@@ -110,7 +121,11 @@ function shortDateLabel(isoDate: string): string {
   });
 }
 
-function isDateInRange(day: string, startDate: string, endDate: string): boolean {
+function isDateInRange(
+  day: string,
+  startDate: string,
+  endDate: string,
+): boolean {
   return day >= startDate && day <= endDate;
 }
 
@@ -125,8 +140,14 @@ export function ReportsManagement() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
-  const bookingById = useMemo(() => new Map(bookings.map((booking) => [booking.id, booking])), [bookings]);
+  const roomById = useMemo(
+    () => new Map(rooms.map((room) => [room.id, room])),
+    [rooms],
+  );
+  const bookingById = useMemo(
+    () => new Map(bookings.map((booking) => [booking.id, booking])),
+    [bookings],
+  );
 
   const validRange = startDate <= endDate;
 
@@ -137,7 +158,8 @@ export function ReportsManagement() {
 
     return bookings.filter(
       (booking) =>
-        booking.status !== "cancelled" && intersectsRange(booking, startDate, endDate),
+        booking.status !== "cancelled" &&
+        intersectsRange(booking, startDate, endDate),
     );
   }, [endDate, startDate, validRange]);
 
@@ -221,9 +243,9 @@ export function ReportsManagement() {
           isDateInRange(booking.checkInDate, startDate, endDate),
       )
       .forEach((booking) => {
-      const dayIndex = parseIsoDate(booking.checkInDate).getUTCDay();
-      counts.set(dayIndex, (counts.get(dayIndex) ?? 0) + 1);
-    });
+        const dayIndex = parseIsoDate(booking.checkInDate).getUTCDay();
+        counts.set(dayIndex, (counts.get(dayIndex) ?? 0) + 1);
+      });
 
     return WEEK_DAY_LABELS.map((label, dayIndex) => ({
       day: label,
@@ -240,14 +262,16 @@ export function ReportsManagement() {
               occupancySeries.length,
           );
 
-    const totalRevenue = revenueByRoomType.reduce((sum, item) => sum + item.revenue, 0);
-    const peakDay =
-      peakBookingDays.reduce<PeakDayPoint | null>((top, item) => {
-        if (!top || item.count > top.count) {
-          return item;
-        }
-        return top;
-      }, null) ?? { day: "-", count: 0 };
+    const totalRevenue = revenueByRoomType.reduce(
+      (sum, item) => sum + item.revenue,
+      0,
+    );
+    const peakDay = peakBookingDays.reduce<PeakDayPoint | null>((top, item) => {
+      if (!top || item.count > top.count) {
+        return item;
+      }
+      return top;
+    }, null) ?? { day: "-", count: 0 };
 
     const topRoom = mostBookedRooms[0] ?? { room: "-", count: 0 };
 
@@ -263,15 +287,20 @@ export function ReportsManagement() {
     <div className="space-y-6">
       <section className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Reports & Analytics</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            Reports & Analytics
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Analyze occupancy, booking behavior, and revenue performance across selected dates.
+            Analyze occupancy, booking behavior, and revenue performance across
+            selected dates.
           </p>
         </div>
 
         <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
           <label className="space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Start Date</span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Start Date
+            </span>
             <input
               type="date"
               value={startDate}
@@ -281,7 +310,9 @@ export function ReportsManagement() {
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">End Date</span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              End Date
+            </span>
             <input
               type="date"
               value={endDate}
@@ -299,10 +330,24 @@ export function ReportsManagement() {
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Average Occupancy" value={`${summaries.averageOccupancy}%`} />
-        <MetricCard title="Revenue in Range" value={formatMoney(summaries.totalRevenue)} />
-        <MetricCard title="Most Booked Room" value={summaries.topRoom.room} description={`${summaries.topRoom.count} bookings`} />
-        <MetricCard title="Peak Booking Day" value={summaries.peakDay.day} description={`${summaries.peakDay.count} check-ins`} />
+        <MetricCard
+          title="Average Occupancy"
+          value={`${summaries.averageOccupancy}%`}
+        />
+        <MetricCard
+          title="Revenue in Range"
+          value={formatMoney(summaries.totalRevenue)}
+        />
+        <MetricCard
+          title="Most Booked Room"
+          value={summaries.topRoom.room}
+          description={`${summaries.topRoom.count} bookings`}
+        />
+        <MetricCard
+          title="Peak Booking Day"
+          value={summaries.peakDay.day}
+          description={`${summaries.peakDay.count} check-ins`}
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
@@ -315,7 +360,12 @@ export function ReportsManagement() {
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={occupancySeries}>
               <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
-              <XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="day"
+                stroke="#94a3b8"
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis
                 domain={[0, 100]}
                 tickFormatter={(value) => `${value}%`}
@@ -345,7 +395,12 @@ export function ReportsManagement() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={revenueByRoomType}>
               <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
-              <XAxis dataKey="roomType" stroke="#94a3b8" tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="roomType"
+                stroke="#94a3b8"
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis
                 stroke="#94a3b8"
                 tickLine={false}
@@ -369,7 +424,12 @@ export function ReportsManagement() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={mostBookedRooms}>
               <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
-              <XAxis dataKey="room" stroke="#94a3b8" tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="room"
+                stroke="#94a3b8"
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} />
               <Tooltip formatter={(value) => toNumber(value)} />
               <Bar dataKey="count" radius={[8, 8, 0, 0]} fill="#7c3aed" />
@@ -386,7 +446,12 @@ export function ReportsManagement() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={peakBookingDays}>
               <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
-              <XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="day"
+                stroke="#94a3b8"
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} />
               <Tooltip formatter={(value) => toNumber(value)} />
               <Bar dataKey="count" radius={[8, 8, 0, 0]} fill="#ea580c" />

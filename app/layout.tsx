@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Bego Management Admin",
-  description: "Pension management dashboard for rooms, guests, bookings, and payments.",
+  description: "Pension management dashboard for rooms, bookings, payments, and operations.",
 };
 
 export default function RootLayout({

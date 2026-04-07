@@ -84,7 +84,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <input
             id="global-search"
             type="search"
-            placeholder="Search bookings, guests, rooms..."
+            placeholder="Search bookings, rooms, payments..."
             className="h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400 focus:border-slate-300"
           />
         </div>

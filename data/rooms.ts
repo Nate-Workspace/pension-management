@@ -11,7 +11,6 @@ export const rooms: Room[] = [
     price: 2000,
     pricePerNight: 2000,
     capacity: 1,
-    currentGuestId: "guest-001",
   },
   {
     id: "room-102",
@@ -45,7 +44,6 @@ export const rooms: Room[] = [
     price: 4500,
     pricePerNight: 4500,
     capacity: 2,
-    currentGuestId: "guest-003",
   },
   {
     id: "room-202",
@@ -57,7 +55,6 @@ export const rooms: Room[] = [
     price: 5000,
     pricePerNight: 5000,
     capacity: 3,
-    currentGuestId: "guest-005",
   },
   {
     id: "room-203",

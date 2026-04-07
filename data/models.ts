@@ -1,17 +1,6 @@
 export type RoomType = "single" | "double" | "vip";
 export type RoomStatus = "available" | "occupied" | "cleaning" | "maintenance";
 
-export type Guest = {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  nationalId?: string;
-  nationality: string;
-  notes?: string;
-};
-
 export type Room = {
   id: string;
   name: string;
@@ -22,13 +11,12 @@ export type Room = {
   price: number;
   pricePerNight: number;
   capacity: number;
-  currentGuestId?: Guest["id"];
 };
 
 export type BookingGuestInfo = {
   name: string;
-  phone: string;
-  id?: string;
+  phone?: string;
+  idNumber?: string;
 };
 
 export type BookingPaymentStatus = "paid" | "partial" | "unpaid";
@@ -39,7 +27,6 @@ export type Booking = {
   id: string;
   code: string;
   guest: BookingGuestInfo;
-  guestId: Guest["id"];
   roomId: Room["id"];
   status: BookingStatus;
   checkIn: string;
@@ -62,7 +49,6 @@ export type PaymentStatus = "paid" | "partial" | "unpaid";
 export type Payment = {
   id: string;
   bookingId: Booking["id"];
-  guestId: Guest["id"];
   roomId: Room["id"];
   amount: number;
   method: PaymentMethod;

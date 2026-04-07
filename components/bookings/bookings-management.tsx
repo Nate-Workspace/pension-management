@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 
-import type { Booking, BookingStatus, Guest, Room } from "@/data";
+import type { Booking, BookingStatus, Room } from "@/data";
 import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard } from "@/components/ui";
 import {
@@ -19,7 +19,9 @@ type BookingFilter = "all" | BookingStatus;
 
 type BookingFormState = {
   id?: string;
-  guestId: string;
+  guestName: string;
+  guestPhone: string;
+  guestIdNumber: string;
   roomId: string;
   status: BookingStatus;
   checkInDate: string;
@@ -80,9 +82,11 @@ function bookingStatusStyle(status: BookingStatus): string {
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
-function createFormDefaults(guestList: Guest[], roomList: Room[]): BookingFormState {
+function createFormDefaults(roomList: Room[]): BookingFormState {
   return {
-    guestId: guestList[0]?.id ?? "",
+    guestName: "",
+    guestPhone: "",
+    guestIdNumber: "",
     roomId: roomList[0]?.id ?? "",
     status: "confirmed",
     checkInDate: "2026-03-27",
@@ -95,7 +99,9 @@ function createFormDefaults(guestList: Guest[], roomList: Room[]): BookingFormSt
 function createFormFromBooking(booking: Booking): BookingFormState {
   return {
     id: booking.id,
-    guestId: booking.guestId,
+    guestName: booking.guest.name,
+    guestPhone: booking.guest.phone ?? "",
+    guestIdNumber: booking.guest.idNumber ?? "",
     roomId: booking.roomId,
     status: booking.status,
     checkInDate: booking.checkInDate,
@@ -152,14 +158,14 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 }
 
 export function BookingsManagement() {
-  const { bookings, guests, rooms, operationDay, setBookings, setCleaningRoomIds } = useOperationsData();
+  const { bookings, rooms, operationDay, setBookings, setCleaningRoomIds } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults(guests, rooms));
+  const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults(rooms));
   const [formError, setFormError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -175,7 +181,6 @@ export function BookingsManagement() {
     };
   }, []);
 
-  const guestById = useMemo(() => byId<Guest>(guests), [guests]);
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
   const visibleBookings = useMemo(() => {
@@ -190,10 +195,9 @@ export function BookingsManagement() {
         return true;
       }
 
-      const guest = guestById.get(booking.guestId);
       const room = roomById.get(booking.roomId);
 
-      const guestName = guest ? `${guest.firstName} ${guest.lastName}`.toLowerCase() : "";
+      const guestName = booking.guest.name.toLowerCase();
       const roomLabel = room ? `room ${room.number}`.toLowerCase() : "";
 
       return (
@@ -202,7 +206,7 @@ export function BookingsManagement() {
         roomLabel.includes(query)
       );
     });
-  }, [bookings, guestById, roomById, search, statusFilter]);
+  }, [bookings, roomById, search, statusFilter]);
 
   const metrics = useMemo(() => {
     const confirmed = bookings.filter((booking) => booking.status === "confirmed").length;
@@ -236,12 +240,11 @@ export function BookingsManagement() {
           return;
         }
 
-        const guest = guestById.get(booking.guestId);
         const room = roomById.get(booking.roomId);
 
         const entry: CalendarReservation = {
           id: booking.id,
-          guestName: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown",
+          guestName: booking.guest.name,
           roomNumber: room?.number ?? "N/A",
           status: booking.status,
         };
@@ -252,12 +255,12 @@ export function BookingsManagement() {
     });
 
     return map;
-  }, [bookings, calendarDays, guestById, roomById]);
+  }, [bookings, calendarDays, roomById]);
 
   const openCreate = () => {
     setFormError(null);
     setActionMessage(null);
-    setFormState(createFormDefaults(guests, rooms));
+    setFormState(createFormDefaults(rooms));
     setIsFormOpen(true);
   };
 
@@ -355,6 +358,11 @@ export function BookingsManagement() {
 
     const parsedPaidAmount = Number(formState.paidAmount);
 
+    if (!formState.guestName.trim()) {
+      setFormError("Guest name is required.");
+      return;
+    }
+
     if (!Number.isFinite(parsedPaidAmount) || parsedPaidAmount < 0) {
       setFormError("Paid amount must be a valid non-negative number.");
       return;
@@ -383,7 +391,6 @@ export function BookingsManagement() {
     const boundedPaidAmount = Math.min(parsedPaidAmount, nextAmount);
     const remainingAmount = Math.max(nextAmount - boundedPaidAmount, 0);
     const paymentStatus = derivePaymentStatus(nextAmount, boundedPaidAmount);
-    const guest = guestById.get(formState.guestId);
 
     const nextBooking: Booking = {
       id: formState.id ?? `book-local-${bookings.length + 1}`,
@@ -391,11 +398,10 @@ export function BookingsManagement() {
         ? bookings.find((item) => item.id === formState.id)?.code ?? createBookingCode(bookings.length + 1)
         : createBookingCode(bookings.length + 1),
       guest: {
-        name: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest",
-        phone: guest?.phone ?? "",
-        id: guest?.nationalId,
+        name: formState.guestName.trim(),
+        phone: formState.guestPhone.trim() || undefined,
+        idNumber: formState.guestIdNumber.trim() || undefined,
       },
-      guestId: formState.guestId,
       roomId: formState.roomId,
       status: formState.status,
       checkIn: formState.checkInDate,
@@ -515,10 +521,12 @@ export function BookingsManagement() {
             {
               key: "guest",
               header: "Guest",
-              render: (booking) => {
-                const guest = guestById.get(booking.guestId);
-                return guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest";
-              },
+              render: (booking) => (
+                <div>
+                  <p className="font-medium text-slate-900">{booking.guest.name}</p>
+                  {booking.guest.phone ? <p className="text-xs text-slate-500">{booking.guest.phone}</p> : null}
+                </div>
+              ),
             },
             {
               key: "room",
@@ -701,19 +709,36 @@ export function BookingsManagement() {
       >
         <div className="space-y-4">
           <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Guest</span>
-            <select
-              value={formState.guestId}
-              onChange={(event) => setFormState((prev) => ({ ...prev, guestId: event.target.value }))}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
-            >
-              {guests.map((guest) => (
-                <option key={guest.id} value={guest.id}>
-                  {guest.firstName} {guest.lastName}
-                </option>
-              ))}
-            </select>
+            <span className="text-sm font-medium text-slate-700">Guest Name</span>
+            <input
+              type="text"
+              value={formState.guestName}
+              onChange={(event) => setFormState((prev) => ({ ...prev, guestName: event.target.value }))}
+              className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+            />
           </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Guest Phone</span>
+              <input
+                type="text"
+                value={formState.guestPhone}
+                onChange={(event) => setFormState((prev) => ({ ...prev, guestPhone: event.target.value }))}
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">ID Number</span>
+              <input
+                type="text"
+                value={formState.guestIdNumber}
+                onChange={(event) => setFormState((prev) => ({ ...prev, guestIdNumber: event.target.value }))}
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              />
+            </label>
+          </div>
 
           <label className="space-y-1">
             <span className="text-sm font-medium text-slate-700">Room</span>

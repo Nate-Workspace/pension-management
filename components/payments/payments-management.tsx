@@ -82,7 +82,7 @@ function paymentStatusLabel(status: Payment["status"]): string {
 }
 
 export function PaymentsManagement() {
-  const { bookings, guests, payments, rooms, operationDay } = useOperationsData();
+  const { bookings, payments, rooms, operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
@@ -92,7 +92,6 @@ export function PaymentsManagement() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const guestById = useMemo(() => new Map(guests.map((item) => [item.id, item])), [guests]);
   const roomById = useMemo(() => new Map(rooms.map((item) => [item.id, item])), [rooms]);
 
   const paidByBooking = useMemo(() => {
@@ -107,7 +106,6 @@ export function PaymentsManagement() {
     return payments
       .map((payment) => {
         const booking = bookings.find((item) => item.id === payment.bookingId);
-        const guest = guestById.get(payment.guestId);
         const room = roomById.get(payment.roomId);
         const bookingTotal = booking?.totalAmount ?? 0;
         const paidTotal = paidByBooking.get(payment.bookingId) ?? 0;
@@ -115,7 +113,8 @@ export function PaymentsManagement() {
         return {
           ...payment,
           bookingCode: booking?.code ?? "N/A",
-          guestName: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown",
+          guestName: booking?.guest.name ?? "Unknown",
+          guestPhone: booking?.guest.phone,
           roomNumber: room?.number ?? "N/A",
           outstanding: Math.max(bookingTotal - paidTotal, 0),
           paidDate: payment.paidAt?.slice(0, 10),
@@ -126,7 +125,7 @@ export function PaymentsManagement() {
         const rightDate = right.paidDate ?? "0000-00-00";
         return rightDate.localeCompare(leftDate);
       });
-  }, [bookings, guestById, paidByBooking, payments, roomById]);
+  }, [bookings, paidByBooking, payments, roomById]);
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -191,7 +190,7 @@ export function PaymentsManagement() {
       { method: "Cash", value: cash },
       { method: "Mobile Money", value: mobileMoney },
     ];
-  }, []);
+  }, [payments]);
 
   return (
     <div className="space-y-6">
@@ -299,7 +298,12 @@ export function PaymentsManagement() {
             {
               key: "guest",
               header: "Guest",
-              render: (row) => row.guestName,
+              render: (row) => (
+                <div>
+                  <p className="font-medium text-slate-900">{row.guestName}</p>
+                  {row.guestPhone ? <p className="text-xs text-slate-500">{row.guestPhone}</p> : null}
+                </div>
+              ),
             },
             {
               key: "room",

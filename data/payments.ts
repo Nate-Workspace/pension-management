@@ -4,7 +4,6 @@ export const payments: Payment[] = [
   {
     id: "pay-001",
     bookingId: "book-001",
-    guestId: "guest-001",
     roomId: "room-101",
     amount: 8000,
     method: "mobile_money",
@@ -15,7 +14,6 @@ export const payments: Payment[] = [
   {
     id: "pay-002",
     bookingId: "book-002",
-    guestId: "guest-003",
     roomId: "room-201",
     amount: 9000,
     method: "cash",
@@ -26,7 +24,6 @@ export const payments: Payment[] = [
   {
     id: "pay-003",
     bookingId: "book-003",
-    guestId: "guest-005",
     roomId: "room-202",
     amount: 20000,
     method: "mobile_money",
@@ -37,7 +34,6 @@ export const payments: Payment[] = [
   {
     id: "pay-004",
     bookingId: "book-004",
-    guestId: "guest-004",
     roomId: "room-302",
     amount: 0,
     method: "cash",
@@ -47,7 +43,6 @@ export const payments: Payment[] = [
   {
     id: "pay-005",
     bookingId: "book-006",
-    guestId: "guest-002",
     roomId: "room-102",
     amount: 5000,
     method: "mobile_money",

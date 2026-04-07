@@ -3,8 +3,8 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
-import { bookings as initialBookings, guests, payments as initialPayments, rooms as initialRooms } from "@/data";
-import type { Booking, Guest, Payment, Room } from "@/data";
+import { bookings as initialBookings, payments as initialPayments, rooms as initialRooms } from "@/data";
+import type { Booking, Payment, Room } from "@/data";
 import { deriveRoomsFromBookings, toIsoDate } from "@/lib/operations";
 
 type OperationsContextValue = {
@@ -12,7 +12,6 @@ type OperationsContextValue = {
   setBookings: Dispatch<SetStateAction<Booking[]>>;
   payments: Payment[];
   setPayments: Dispatch<SetStateAction<Payment[]>>;
-  guests: Guest[];
   rooms: Room[];
   operationDay: string;
   setCleaningRoomIds: Dispatch<SetStateAction<Set<string>>>;
@@ -43,7 +42,6 @@ export function OperationsProvider({ children }: OperationsProviderProps) {
       setBookings,
       payments,
       setPayments,
-      guests,
       rooms: derivedRooms,
       operationDay,
       setCleaningRoomIds,

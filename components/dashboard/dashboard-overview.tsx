@@ -33,6 +33,7 @@ type RecentBookingRow = {
   id: string;
   bookingCode: string;
   guestName: string;
+  guestPhone?: string;
   roomNumber: string;
   status: BookingStatus;
   totalAmount: number;
@@ -42,6 +43,7 @@ type RecentBookingRow = {
 type CheckInItem = {
   id: string;
   guestName: string;
+  guestPhone?: string;
   roomNumber: string;
   roomStatus: Room["status"];
   checkInDate: string;
@@ -150,7 +152,7 @@ function alertCategoryLabel(category: AlertRow["category"]): string {
 }
 
 export function DashboardOverview() {
-  const { bookings, guests, rooms, operationDay } = useOperationsData();
+  const { bookings, rooms, operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -164,7 +166,6 @@ export function DashboardOverview() {
   }, []);
 
   const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
-  const guestById = useMemo(() => new Map(guests.map((guest) => [guest.id, guest])), [guests]);
 
   const metrics = useMemo(() => {
     const totalRooms = rooms.length;
@@ -225,20 +226,20 @@ export function DashboardOverview() {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .slice(0, 5)
       .map((booking) => {
-        const guest = guestById.get(booking.guestId);
         const room = roomById.get(booking.roomId);
 
         return {
           id: booking.id,
           bookingCode: booking.code,
-          guestName: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest",
+          guestName: booking.guest.name,
+          guestPhone: booking.guest.phone,
           roomNumber: room ? room.number : "N/A",
           status: booking.status,
           totalAmount: booking.totalAmount,
           checkInDate: booking.checkInDate,
         };
       });
-  }, [bookings, guestById, roomById]);
+  }, [bookings, roomById]);
 
   const recentCheckIns = useMemo<CheckInItem[]>(() => {
     return bookings
@@ -246,32 +247,31 @@ export function DashboardOverview() {
       .sort((left, right) => left.checkInDate.localeCompare(right.checkInDate))
       .slice(0, 5)
       .map((booking) => {
-        const guest = guestById.get(booking.guestId);
         const room = roomById.get(booking.roomId);
 
         return {
           id: booking.id,
-          guestName: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest",
+          guestName: booking.guest.name,
+          guestPhone: booking.guest.phone,
           roomNumber: room?.number ?? "N/A",
           roomStatus: room?.status ?? "maintenance",
           checkInDate: booking.checkInDate,
           checkOutDate: booking.checkOutDate,
         };
       });
-  }, [bookings, guestById, operationDay, roomById]);
+  }, [bookings, operationDay, roomById]);
 
   const alerts = useMemo<AlertRow[]>(() => {
     const checkoutTodayAlerts: AlertRow[] = bookings
       .filter((booking) => booking.status !== "cancelled" && booking.checkOutDate === operationDay)
       .map((booking) => {
-        const guest = guestById.get(booking.guestId);
         const room = roomById.get(booking.roomId);
 
         return {
           id: `checkout-${booking.id}`,
           category: "checkout",
-          subject: guest ? `${guest.firstName} ${guest.lastName}` : booking.guest.name,
-          detail: `Room ${room?.number ?? "N/A"} checks out today (${dateLabel(operationDay)})`,
+          subject: booking.guest.name,
+          detail: `${booking.guest.phone ? `${booking.guest.phone} • ` : ""}Room ${room?.number ?? "N/A"} checks out today (${dateLabel(operationDay)})`,
           status: statusLabel(booking.status),
         };
       });
@@ -283,12 +283,10 @@ export function DashboardOverview() {
           (booking.paymentStatus === "unpaid" || booking.paymentStatus === "partial"),
       )
       .map((booking) => {
-        const guest = guestById.get(booking.guestId);
-
         return {
           id: `payment-${booking.id}`,
           category: "payment",
-          subject: guest ? `${guest.firstName} ${guest.lastName}` : booking.guest.name,
+          subject: booking.guest.name,
           detail: `${formatCurrency(booking.remainingAmount)} pending for booking ${booking.code}`,
           status: booking.paymentStatus === "partial" ? "Partially Paid" : "Unpaid",
         };
@@ -305,7 +303,7 @@ export function DashboardOverview() {
       }));
 
     return [...checkoutTodayAlerts, ...paymentAlerts, ...cleaningRoomAlerts];
-  }, [bookings, guestById, operationDay, roomById, rooms]);
+  }, [bookings, operationDay, roomById, rooms]);
 
   return (
     <div className="space-y-6">
@@ -493,7 +491,12 @@ export function DashboardOverview() {
               {
                 key: "guest",
                 header: "Guest",
-                render: (row) => row.guestName,
+                render: (row) => (
+                  <div>
+                    <p className="font-medium text-slate-900">{row.guestName}</p>
+                    {row.guestPhone ? <p className="text-xs text-slate-500">{row.guestPhone}</p> : null}
+                  </div>
+                ),
               },
               {
                 key: "room",
@@ -555,6 +558,7 @@ export function DashboardOverview() {
                     <p className="font-medium text-slate-900">{item.guestName}</p>
                     <StatusBadge status={item.roomStatus} />
                   </div>
+                  {item.guestPhone ? <p className="mt-1 text-xs text-slate-500">{item.guestPhone}</p> : null}
                   <p className="mt-1 text-sm text-slate-600">Room {item.roomNumber}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {dateLabel(item.checkInDate)} - {dateLabel(item.checkOutDate)}

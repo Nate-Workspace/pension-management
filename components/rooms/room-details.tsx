@@ -1,10 +1,12 @@
+/* eslint-disable react-hooks/preserve-manual-memoization */
 "use client";
 
 import { useMemo, useState } from "react";
 
-import { bookings, guests, payments, rooms } from "@/data";
 import type { Booking, BookingStatus, Room } from "@/data";
+import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, MetricCard, StatusBadge } from "@/components/ui";
+import { isBookingActiveOn } from "@/lib/operations";
 
 type RoomDetailsProps = {
   roomId: string;
@@ -14,6 +16,7 @@ type RoomBookingRow = {
   id: string;
   code: string;
   guestName: string;
+  guestPhone?: string;
   status: BookingStatus;
   checkInDate: string;
   checkOutDate: string;
@@ -185,7 +188,8 @@ function computeOccupancyRate(roomBookings: Booking[]): number {
 }
 
 export function RoomDetails({ roomId }: RoomDetailsProps) {
-  const room = useMemo(() => rooms.find((item) => item.id === roomId) ?? null, [roomId]);
+  const { bookings, payments, rooms, operationDay } = useOperationsData();
+  const room = useMemo(() => rooms.find((item) => item.id === roomId) ?? null, [roomId, rooms]);
 
   const [viewMonth, setViewMonth] = useState<Date>(() => {
     if (!room) {
@@ -202,8 +206,6 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
     return startOfMonthUTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth());
   });
 
-  const guestById = useMemo(() => new Map(guests.map((guest) => [guest.id, guest])), []);
-
   const roomBookings = useMemo(() => {
     if (!room) {
       return [];
@@ -216,12 +218,11 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
 
   const bookingRows = useMemo<RoomBookingRow[]>(() => {
     return roomBookings.map((booking) => {
-      const guest = guestById.get(booking.guestId);
-
       return {
         id: booking.id,
         code: booking.code,
-        guestName: guest ? `${guest.firstName} ${guest.lastName}` : booking.guest.name,
+        guestName: booking.guest.name,
+        guestPhone: booking.guest.phone,
         status: booking.status,
         checkInDate: booking.checkInDate,
         checkOutDate: booking.checkOutDate,
@@ -231,7 +232,11 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
         remainingAmount: booking.remainingAmount,
       };
     });
-  }, [guestById, roomBookings]);
+  }, [roomBookings]);
+
+  const activeBooking = useMemo(() => {
+    return roomBookings.find((booking) => isBookingActiveOn(operationDay, booking)) ?? null;
+  }, [operationDay, roomBookings]);
 
   const roomPayments = useMemo(() => {
     if (!room) {
@@ -333,9 +338,7 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
             <div className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
               <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current Guest</dt>
               <dd className="mt-1 text-sm font-medium text-slate-900">
-                {room.currentGuestId
-                  ? `${guestById.get(room.currentGuestId)?.firstName ?? "Unknown"} ${guestById.get(room.currentGuestId)?.lastName ?? "Guest"}`
-                  : "No active assignment"}
+                {activeBooking ? activeBooking.guest.name : "No active assignment"}
               </dd>
             </div>
           </dl>
@@ -425,7 +428,10 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
               render: (row) => (
                 <div>
                   <p className="font-medium text-slate-900">{row.code}</p>
-                  <p className="text-xs text-slate-500">{row.guestName}</p>
+                  <p className="text-xs text-slate-500">
+                    {row.guestName}
+                    {row.guestPhone ? ` • ${row.guestPhone}` : ""}
+                  </p>
                 </div>
               ),
             },

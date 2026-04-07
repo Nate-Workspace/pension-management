@@ -8,7 +8,6 @@ import {
   IconLayoutDashboard,
   IconSettings,
   IconUserCog,
-  IconUsers,
 } from "@tabler/icons-react";
 
 import type { NavItem } from "@/lib/navigation";
@@ -26,7 +25,6 @@ function isActive(pathname: string, href: string): boolean {
 const navIcons: Record<string, ReactNode> = {
   "/dashboard": <IconLayoutDashboard size={18} stroke={1.8} />,
   "/rooms": <IconBed size={18} stroke={1.8} />,
-  "/guests": <IconUsers size={18} stroke={1.8} />,
   "/bookings": <IconCalendarEvent size={18} stroke={1.8} />,
   "/payments": <IconCreditCard size={18} stroke={1.8} />,
   "/reports": <IconChartBar size={18} stroke={1.8} />,

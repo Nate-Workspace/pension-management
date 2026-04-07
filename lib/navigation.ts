@@ -6,7 +6,6 @@ export type NavItem = {
 export const dashboardNavigation: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Rooms", href: "/rooms" },
-  { label: "Guests", href: "/guests" },
   { label: "Bookings", href: "/bookings" },
   { label: "Payments", href: "/payments" },
   { label: "Reports", href: "/reports" },

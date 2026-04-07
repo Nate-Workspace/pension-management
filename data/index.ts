@@ -1,5 +1,4 @@
 export { bookings } from "./bookings";
-export { guests } from "./guests";
 export { payments } from "./payments";
 export { rooms } from "./rooms";
 export { staff } from "./staff";
@@ -9,7 +8,6 @@ export type {
   BookingGuestInfo,
   BookingPaymentStatus,
   BookingStatus,
-  Guest,
   Payment,
   PaymentMethod,
   PaymentStatus,

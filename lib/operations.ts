@@ -64,7 +64,6 @@ export function deriveRoomsFromBookings(
       return {
         ...room,
         status: "occupied",
-        currentGuestId: activeBooking.guestId,
       };
     }
 
@@ -72,14 +71,12 @@ export function deriveRoomsFromBookings(
       return {
         ...room,
         status: "cleaning",
-        currentGuestId: undefined,
       };
     }
 
     return {
       ...room,
       status: room.status === "maintenance" ? "maintenance" : "available",
-      currentGuestId: undefined,
     };
   });
 }
