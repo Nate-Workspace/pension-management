@@ -123,6 +123,10 @@ function clampNightsInRange(booking: Booking, startDate: string, endDate: string
   return Math.max(rawDays, 0);
 }
 
+function isDateInRange(day: string, startDate: string, endDate: string): boolean {
+  return day >= startDate && day <= endDate;
+}
+
 export function ReportsManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState("2026-03-20");
@@ -169,9 +173,9 @@ export function ReportsManagement() {
 
   const revenueByRoomType = useMemo<RoomTypeRevenuePoint[]>(() => {
     const totals: Record<RoomType, number> = {
-      single: 4,
-      double: 2,
-      vip: 1,
+      single: 0,
+      double: 0,
+      vip: 0,
     };
 
     scopedBookings.forEach((booking) => {
@@ -182,7 +186,14 @@ export function ReportsManagement() {
       }
 
       const inRangeNights = clampNightsInRange(booking, startDate, endDate);
-      totals[room.type] += room.pricePerNight * inRangeNights;
+
+      if (inRangeNights <= 0 || booking.nights <= 0) {
+        return;
+      }
+
+      // Prorate booking revenue by overlap nights to keep room-type revenue consistent with booking totals.
+      const nightlyRevenue = booking.totalAmount / booking.nights;
+      totals[room.type] += nightlyRevenue * inRangeNights;
     });
 
     return (["single", "double", "vip"] as const).map((roomType) => ({
@@ -210,7 +221,13 @@ export function ReportsManagement() {
   const peakBookingDays = useMemo<PeakDayPoint[]>(() => {
     const counts = new Map<number, number>();
 
-    scopedBookings.forEach((booking) => {
+    bookings
+      .filter(
+        (booking) =>
+          booking.status !== "cancelled" &&
+          isDateInRange(booking.checkInDate, startDate, endDate),
+      )
+      .forEach((booking) => {
       const dayIndex = parseIsoDate(booking.checkInDate).getUTCDay();
       counts.set(dayIndex, (counts.get(dayIndex) ?? 0) + 1);
     });
@@ -219,7 +236,7 @@ export function ReportsManagement() {
       day: label,
       count: counts.get(dayIndex) ?? 0,
     }));
-  }, [scopedBookings]);
+  }, [endDate, startDate]);
 
   const summaries = useMemo(() => {
     const averageOccupancy =
