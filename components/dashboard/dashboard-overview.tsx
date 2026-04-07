@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { bookings, guests, payments, rooms } from "@/data";
+import { bookings, guests, rooms } from "@/data";
 import type { BookingStatus, Room } from "@/data";
 import { ChartWrapper, DataTable, MetricCard, StatusBadge } from "@/components/ui";
 
@@ -167,23 +167,23 @@ export function DashboardOverview() {
   const guestById = useMemo(() => new Map(guests.map((guest) => [guest.id, guest])), []);
 
   const metrics = useMemo(() => {
+    const activeBookings = bookings.filter((booking) => booking.status !== "cancelled");
     const totalRooms = rooms.length;
     const occupiedRooms = rooms.filter((room) => room.status === "occupied").length;
     const availableRooms = rooms.filter((room) => room.status === "available").length;
     const cleaningRooms = rooms.filter((room) => room.status === "cleaning").length;
 
-    const todayRevenue = payments
-      .filter((payment) => payment.paidAt?.slice(0, 10) === OPERATION_DATE)
-      .reduce((sum, payment) => sum + payment.amount, 0);
+    const todayRevenue = activeBookings
+      .filter((booking) => booking.createdAt.slice(0, 10) === OPERATION_DATE)
+      .reduce((sum, booking) => sum + booking.paidAmount, 0);
 
     const monthPrefix = OPERATION_DATE.slice(0, 7);
 
-    const monthlyRevenue = payments
-      .filter((payment) => payment.paidAt?.startsWith(monthPrefix))
-      .reduce((sum, payment) => sum + payment.amount, 0);
+    const monthlyRevenue = activeBookings
+      .filter((booking) => booking.createdAt.startsWith(monthPrefix))
+      .reduce((sum, booking) => sum + booking.paidAmount, 0);
 
-    const outstandingPayments = bookings
-      .filter((booking) => booking.status !== "cancelled")
+    const outstandingPayments = activeBookings
       .reduce((sum, booking) => sum + booking.remainingAmount, 0);
 
     return {
@@ -215,9 +215,9 @@ export function DashboardOverview() {
   const revenueSeries = useMemo<RevenuePoint[]>(() => {
     return Array.from({ length: 7 }, (_, index) => {
       const day = addDays(OPERATION_DATE, index - 6);
-      const revenue = payments
-        .filter((payment) => payment.paidAt?.slice(0, 10) === day)
-        .reduce((sum, payment) => sum + payment.amount, 0);
+      const revenue = bookings
+        .filter((booking) => booking.status !== "cancelled" && booking.createdAt.slice(0, 10) === day)
+        .reduce((sum, booking) => sum + booking.paidAmount, 0);
 
       return {
         label: dateLabel(day),

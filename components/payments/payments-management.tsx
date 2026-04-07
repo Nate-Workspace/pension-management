@@ -145,17 +145,21 @@ export function PaymentsManagement() {
   }, [methodFilter, paymentRows, query]);
 
   const summaries = useMemo(() => {
-    const dailyCollected = payments
-      .filter((payment) => payment.paidAt?.startsWith(OP_DAY))
-      .reduce((sum, payment) => sum + payment.amount, 0);
+    const activeBookings = bookings.filter((booking) => booking.status !== "cancelled");
 
-    const monthlyCollected = payments
-      .filter((payment) => payment.paidAt?.startsWith("2026-03"))
-      .reduce((sum, payment) => sum + payment.amount, 0);
+    const dailyCollected = activeBookings
+      .filter((booking) => booking.createdAt.slice(0, 10) === OP_DAY)
+      .reduce((sum, booking) => sum + booking.paidAmount, 0);
 
-    const unpaidCount = paymentRows.filter((row) => row.status === "unpaid").length;
-    const partialCount = paymentRows.filter((row) => row.status === "partial").length;
-    const outstandingTotal = paymentRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const monthPrefix = OP_DAY.slice(0, 7);
+
+    const monthlyCollected = activeBookings
+      .filter((booking) => booking.createdAt.startsWith(monthPrefix))
+      .reduce((sum, booking) => sum + booking.paidAmount, 0);
+
+    const unpaidCount = activeBookings.filter((booking) => booking.paymentStatus === "unpaid").length;
+    const partialCount = activeBookings.filter((booking) => booking.paymentStatus === "partial").length;
+    const outstandingTotal = activeBookings.reduce((sum, booking) => sum + booking.remainingAmount, 0);
 
     return {
       dailyCollected,
@@ -164,14 +168,14 @@ export function PaymentsManagement() {
       partialCount,
       outstandingTotal,
     };
-  }, [paymentRows]);
+  }, []);
 
   const dailyTrend = useMemo<DailyPoint[]>(() => {
     return Array.from({ length: 7 }, (_, index) => {
       const day = addDays(OP_DAY, index - 6);
-      const value = payments
-        .filter((payment) => payment.paidAt?.slice(0, 10) === day)
-        .reduce((sum, payment) => sum + payment.amount, 0);
+      const value = bookings
+        .filter((booking) => booking.status !== "cancelled" && booking.createdAt.slice(0, 10) === day)
+        .reduce((sum, booking) => sum + booking.paidAmount, 0);
 
       return {
         label: toDayLabel(day),
