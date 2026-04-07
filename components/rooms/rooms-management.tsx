@@ -5,7 +5,9 @@ import { useEffect } from "react";
 
 import { rooms as initialRooms } from "@/data";
 import type { Room, RoomType } from "@/data";
+import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard, StatusBadge } from "@/components/ui";
+import { isBookingActiveOn } from "@/lib/operations";
 import { ROOM_STATUS_LABELS, type RoomStatus } from "@/lib/types/status";
 
 type StatusFilter = "all" | RoomStatus;
@@ -95,6 +97,7 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 }
 
 export function RoomsManagement() {
+  const { bookings, operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -133,6 +136,16 @@ export function RoomsManagement() {
       cleaning: cleaningCount,
     };
   }, [rooms]);
+
+  const activeBookingByRoomId = useMemo(() => {
+    return bookings.reduce<Map<string, (typeof bookings)[number]>>((map, booking) => {
+      if (isBookingActiveOn(operationDay, booking)) {
+        map.set(booking.roomId, booking);
+      }
+
+      return map;
+    }, new Map<string, (typeof bookings)[number]>());
+  }, [bookings, operationDay]);
 
   const openAddDrawer = () => {
     setFormError(null);
@@ -242,7 +255,20 @@ export function RoomsManagement() {
     {
       key: "occupancy",
       header: "Occupancy",
-      render: (room: Room) => (room.status === "occupied" ? "Occupied" : "Not occupied"),
+      render: (room: Room) => {
+        const activeBooking = activeBookingByRoomId.get(room.id);
+
+        if (!activeBooking) {
+          return "Not occupied";
+        }
+
+        return (
+          <div>
+            <p className="font-medium text-slate-900">{activeBooking.guest.name}</p>
+            {activeBooking.guest.phone ? <p className="text-xs text-slate-500">{activeBooking.guest.phone}</p> : null}
+          </div>
+        );
+      },
     },
     {
       key: "quick-actions",
