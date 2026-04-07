@@ -77,6 +77,13 @@ function dateLabel(value: string): string {
   });
 }
 
+function monthLabel(value: string): string {
+  return new Date(`${value}-01T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
 function addDays(baseDate: string, days: number): string {
   const date = new Date(`${baseDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -131,21 +138,30 @@ export function DashboardOverview() {
     const totalRooms = rooms.length;
     const occupiedRooms = rooms.filter((room) => room.status === "occupied").length;
     const availableRooms = rooms.filter((room) => room.status === "available").length;
+    const cleaningRooms = rooms.filter((room) => room.status === "cleaning").length;
 
-    const checkInsToday = bookings.filter(
-      (booking) => booking.status === "confirmed" && booking.checkInDate === OPERATION_DATE,
-    ).length;
+    const todayRevenue = payments
+      .filter((payment) => payment.paidAt?.slice(0, 10) === OPERATION_DATE)
+      .reduce((sum, payment) => sum + payment.amount, 0);
+
+    const monthPrefix = OPERATION_DATE.slice(0, 7);
 
     const monthlyRevenue = payments
-      .filter((payment) => payment.paidAt?.startsWith("2026-03"))
+      .filter((payment) => payment.paidAt?.startsWith(monthPrefix))
       .reduce((sum, payment) => sum + payment.amount, 0);
+
+    const outstandingPayments = bookings
+      .filter((booking) => booking.status !== "cancelled")
+      .reduce((sum, booking) => sum + booking.remainingAmount, 0);
 
     return {
       totalRooms,
       occupiedRooms,
       availableRooms,
-      checkInsToday,
+      cleaningRooms,
+      todayRevenue,
       monthlyRevenue,
+      outstandingPayments,
       occupancyRate: Math.round((occupiedRooms / totalRooms) * 100),
     };
   }, []);
@@ -227,7 +243,7 @@ export function DashboardOverview() {
         </p>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Total Rooms"
           value={isLoading ? "--" : String(metrics.totalRooms)}
@@ -244,14 +260,24 @@ export function DashboardOverview() {
           description="Ready for new bookings"
         />
         <MetricCard
-          title="Today Check-ins"
-          value={isLoading ? "--" : String(metrics.checkInsToday)}
+          title="Needs Cleaning"
+          value={isLoading ? "--" : String(metrics.cleaningRooms)}
+          description="Rooms pending turnover"
+        />
+        <MetricCard
+          title="Today's Revenue"
+          value={isLoading ? "--" : formatCurrency(metrics.todayRevenue)}
           description={`Operational date: ${dateLabel(OPERATION_DATE)}`}
         />
         <MetricCard
           title="Monthly Revenue"
           value={isLoading ? "--" : formatCurrency(metrics.monthlyRevenue)}
-          description="Collected in March"
+          description={`Collected in ${monthLabel(OPERATION_DATE.slice(0, 7))}`}
+        />
+        <MetricCard
+          title="Outstanding Payments"
+          value={isLoading ? "--" : formatCurrency(metrics.outstandingPayments)}
+          description="Open booking balances"
         />
       </section>
 
