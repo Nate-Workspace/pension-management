@@ -127,7 +127,7 @@ export function GuestsManagement() {
       return (
         fullName.includes(query) ||
         guest.phone.toLowerCase().includes(query) ||
-        guest.nationalId.toLowerCase().includes(query)
+        (guest.nationalId ?? "").toLowerCase().includes(query)
       );
     });
   }, [guests, searchQuery]);
@@ -195,7 +195,7 @@ export function GuestsManagement() {
     }
 
     const duplicateId = guests.find(
-      (guest) => guest.nationalId.trim().toLowerCase() === guestForm.nationalId.trim().toLowerCase(),
+      (guest) => (guest.nationalId ?? "").trim().toLowerCase() === guestForm.nationalId.trim().toLowerCase(),
     );
 
     if (duplicateId) {
@@ -207,6 +207,7 @@ export function GuestsManagement() {
       id: generateGuestId(guests.length + 1),
       firstName: guestForm.firstName.trim(),
       lastName: guestForm.lastName.trim(),
+      name: `${guestForm.firstName.trim()} ${guestForm.lastName.trim()}`,
       phone: guestForm.phone.trim(),
       nationalId: guestForm.nationalId.trim(),
       nationality: guestForm.nationality.trim() || "Not specified",
@@ -283,13 +284,24 @@ export function GuestsManagement() {
     const newBooking: Booking = {
       id: `book-local-${bookingIndex}`,
       code: generateBookingCode(bookingIndex),
+      guest: {
+        id: selectedGuest.id,
+        name: `${selectedGuest.firstName} ${selectedGuest.lastName}`,
+        phone: selectedGuest.phone,
+      },
       guestId: selectedGuest.id,
       roomId: room.id,
       status: "confirmed",
+      checkIn: TODAY,
+      checkOut: addDays(TODAY, nights),
       checkInDate: TODAY,
       checkOutDate: addDays(TODAY, nights),
       nights,
-      totalAmount: room.pricePerNight * nights,
+      totalAmount: room.price * nights,
+      paidAmount: 0,
+      remainingAmount: room.price * nights,
+      paymentStatus: "unpaid",
+      dueDate: TODAY,
       createdAt: `${TODAY}T12:00:00Z`,
       source: "walk-in",
     };

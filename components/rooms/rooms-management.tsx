@@ -231,11 +231,13 @@ export function RoomsManagement() {
       id:
         formState.id ??
         `room-${formState.number.trim().toLowerCase()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: `Room ${formState.number.trim()}`,
       number: formState.number.trim(),
       floor,
       type: formState.type,
       status: formState.status,
       capacity,
+      price: pricePerNight,
       pricePerNight,
       currentGuestId: formState.currentGuestId || undefined,
     });
