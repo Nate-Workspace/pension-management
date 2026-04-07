@@ -182,10 +182,58 @@ function derivePaymentStatus(totalAmount: number, paidAmount: number): Booking["
   return "partial";
 }
 
+function isBookingActiveOn(day: string, booking: Booking): boolean {
+  return booking.status !== "cancelled" && booking.checkInDate <= day && booking.checkOutDate > day;
+}
+
+function deriveRoomsFromBookings(
+  baseRooms: Room[],
+  bookingList: Booking[],
+  cleaningRoomIds: Set<string>,
+  operationDay: string,
+): Room[] {
+  const activeBookingByRoomId = new Map<string, Booking>();
+
+  bookingList.forEach((booking) => {
+    if (isBookingActiveOn(operationDay, booking)) {
+      activeBookingByRoomId.set(booking.roomId, booking);
+    }
+  });
+
+  return baseRooms.map((room) => {
+    const activeBooking = activeBookingByRoomId.get(room.id);
+
+    if (activeBooking) {
+      return {
+        ...room,
+        status: "occupied",
+        currentGuestId: activeBooking.guestId,
+      };
+    }
+
+    if (cleaningRoomIds.has(room.id)) {
+      return {
+        ...room,
+        status: "cleaning",
+        currentGuestId: undefined,
+      };
+    }
+
+    return {
+      ...room,
+      status: room.status === "maintenance" ? "maintenance" : "available",
+      currentGuestId: undefined,
+    };
+  });
+}
+
 export function BookingsManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
-  const [rooms, setRooms] = useState<Room[]>(initialRooms);
+  const [operationDay] = useState<string>(() => toIsoDate(new Date()));
+  const [cleaningRoomIds, setCleaningRoomIds] = useState<Set<string>>(
+    () => new Set(initialRooms.filter((room) => room.status === "cleaning").map((room) => room.id)),
+  );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
@@ -208,6 +256,10 @@ export function BookingsManagement() {
   }, []);
 
   const guestById = useMemo(() => byId<Guest>(guests), []);
+  const rooms = useMemo(
+    () => deriveRoomsFromBookings(initialRooms, bookings, cleaningRoomIds, operationDay),
+    [bookings, cleaningRoomIds, operationDay],
+  );
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
   const visibleBookings = useMemo(() => {
@@ -303,7 +355,7 @@ export function BookingsManagement() {
   const closeForm = () => {
     setIsFormOpen(false);
     setFormError(null);
-    setActionMessage("Booking saved successfully.");
+    setActionMessage(null);
   };
 
   const checkoutBooking = (bookingId: string) => {
@@ -328,7 +380,7 @@ export function BookingsManagement() {
       }
     }
 
-    const today = toIsoDate(new Date());
+    const today = operationDay;
     const updatedNights = Math.max(1, diffNights(booking.checkInDate, today));
 
     setBookings((current) =>
@@ -346,40 +398,26 @@ export function BookingsManagement() {
       }),
     );
 
-    setRooms((currentRooms) =>
-      currentRooms.map((room) => {
-        if (room.id !== booking.roomId) {
-          return room;
-        }
-
-        return {
-          ...room,
-          status: "cleaning",
-          currentGuestId: undefined,
-        };
-      }),
-    );
+    setCleaningRoomIds((current) => {
+      const next = new Set(current);
+      next.add(booking.roomId);
+      return next;
+    });
 
     setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
   };
 
   const setRoomAvailable = (roomId: string) => {
-    setRooms((currentRooms) =>
-      currentRooms.map((room) => {
-        if (room.id !== roomId) {
-          return room;
-        }
+    if (bookings.some((booking) => booking.roomId === roomId && isBookingActiveOn(operationDay, booking))) {
+      setActionMessage("Room cannot be set to available while an active booking exists.");
+      return;
+    }
 
-        if (room.currentGuestId) {
-          return room;
-        }
-
-        return {
-          ...room,
-          status: "available",
-        };
-      }),
-    );
+    setCleaningRoomIds((current) => {
+      const next = new Set(current);
+      next.delete(roomId);
+      return next;
+    });
 
     setActionMessage("Room marked as available.");
   };
@@ -469,30 +507,17 @@ export function BookingsManagement() {
       return current.map((item) => (item.id === formState.id ? nextBooking : item));
     });
 
-    setRooms((currentRooms) =>
-      currentRooms.map((currentRoom) => {
-        if (currentRoom.id !== formState.roomId) {
-          return currentRoom;
-        }
-
-        if (formState.status === "cancelled") {
-          return {
-            ...currentRoom,
-            status: "available",
-            currentGuestId: undefined,
-          };
-        }
-
-        return {
-          ...currentRoom,
-          status: "occupied",
-          currentGuestId: formState.guestId,
-        };
-      }),
-    );
+    if (formState.status !== "cancelled") {
+      setCleaningRoomIds((current) => {
+        const next = new Set(current);
+        next.delete(formState.roomId);
+        return next;
+      });
+    }
 
     setIsFormOpen(false);
     setFormError(null);
+    setActionMessage("Booking saved successfully.");
   };
 
   const cancelBooking = (bookingId: string) => {
