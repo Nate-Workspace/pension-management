@@ -3,6 +3,7 @@ import type { Guest } from "./models";
 export const guests: Guest[] = [
   {
     id: "guest-001",
+    name: "Musa Diallo",
     firstName: "Musa",
     lastName: "Diallo",
     phone: "+221 77 231 8844",
@@ -12,6 +13,7 @@ export const guests: Guest[] = [
   },
   {
     id: "guest-002",
+    name: "Aminata Ndiaye",
     firstName: "Aminata",
     lastName: "Ndiaye",
     phone: "+221 76 908 3341",
@@ -20,6 +22,7 @@ export const guests: Guest[] = [
   },
   {
     id: "guest-003",
+    name: "Koffi Mensah",
     firstName: "Koffi",
     lastName: "Mensah",
     phone: "+233 24 553 9021",
@@ -28,6 +31,7 @@ export const guests: Guest[] = [
   },
   {
     id: "guest-004",
+    name: "Leila Boukari",
     firstName: "Leila",
     lastName: "Boukari",
     phone: "+227 93 561 700",
@@ -37,6 +41,7 @@ export const guests: Guest[] = [
   },
   {
     id: "guest-005",
+    name: "Fatou Sow",
     firstName: "Fatou",
     lastName: "Sow",
     phone: "+221 70 445 1192",
@@ -45,6 +50,7 @@ export const guests: Guest[] = [
   },
   {
     id: "guest-006",
+    name: "David Kouassi",
     firstName: "David",
     lastName: "Kouassi",
     phone: "+225 07 12 34 55 21",

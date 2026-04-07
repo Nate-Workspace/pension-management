@@ -6,12 +6,15 @@ export { staff } from "./staff";
 
 export type {
   Booking,
+  BookingGuestInfo,
+  BookingPaymentStatus,
   BookingStatus,
   Guest,
   Payment,
   PaymentMethod,
   PaymentStatus,
   Room,
+  RoomStatus,
   RoomType,
   StaffMember,
   StaffRole,

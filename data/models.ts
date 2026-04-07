@@ -1,40 +1,57 @@
-import type { RoomStatus } from "@/lib/types/status";
-
 export type RoomType = "single" | "double" | "vip";
+export type RoomStatus = "available" | "occupied" | "cleaning" | "maintenance";
 
 export type Guest = {
   id: string;
+  name: string;
   firstName: string;
   lastName: string;
   phone: string;
-  nationalId: string;
+  nationalId?: string;
   nationality: string;
   notes?: string;
 };
 
 export type Room = {
   id: string;
+  name: string;
   number: string;
   floor: number;
   type: RoomType;
   status: RoomStatus;
+  price: number;
   pricePerNight: number;
   capacity: number;
   currentGuestId?: Guest["id"];
 };
+
+export type BookingGuestInfo = {
+  name: string;
+  phone: string;
+  id?: string;
+};
+
+export type BookingPaymentStatus = "paid" | "partial" | "unpaid";
 
 export type BookingStatus = "confirmed" | "pending" | "cancelled";
 
 export type Booking = {
   id: string;
   code: string;
+  guest: BookingGuestInfo;
   guestId: Guest["id"];
   roomId: Room["id"];
   status: BookingStatus;
+  checkIn: string;
+  checkOut: string;
   checkInDate: string;
   checkOutDate: string;
   nights: number;
   totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentStatus: BookingPaymentStatus;
+  dueDate?: string;
   createdAt: string;
   source: "walk-in" | "phone" | "website" | "agent";
 };
