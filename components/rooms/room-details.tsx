@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/preserve-manual-memoization */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -214,7 +213,7 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
     return bookings
       .filter((booking) => booking.roomId === room.id)
       .sort((left, right) => right.checkInDate.localeCompare(left.checkInDate));
-  }, [room]);
+  }, [bookings, room]);
 
   const bookingRows = useMemo<RoomBookingRow[]>(() => {
     return roomBookings.map((booking) => {
@@ -244,7 +243,7 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
     }
 
     return payments.filter((payment) => payment.roomId === room.id);
-  }, [room]);
+  }, [payments, room]);
 
   const analytics = useMemo(() => {
     const nonCancelled = roomBookings.filter((booking) => booking.status !== "cancelled");

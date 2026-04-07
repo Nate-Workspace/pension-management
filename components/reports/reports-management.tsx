@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/preserve-manual-memoization */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -161,7 +160,7 @@ export function ReportsManagement() {
         booking.status !== "cancelled" &&
         intersectsRange(booking, startDate, endDate),
     );
-  }, [endDate, startDate, validRange]);
+  }, [bookings, endDate, startDate, validRange]);
 
   const occupancySeries = useMemo<OccupancyPoint[]>(() => {
     if (!validRange) {
@@ -180,7 +179,7 @@ export function ReportsManagement() {
         rate: Math.round((active / rooms.length) * 100),
       };
     });
-  }, [endDate, scopedBookings, startDate, validRange]);
+  }, [endDate, rooms.length, scopedBookings, startDate, validRange]);
 
   const revenueByRoomType = useMemo<RoomTypeRevenuePoint[]>(() => {
     const totals: Record<RoomType, number> = {
@@ -251,7 +250,7 @@ export function ReportsManagement() {
       day: label,
       count: counts.get(dayIndex) ?? 0,
     }));
-  }, [endDate, startDate]);
+  }, [bookings, endDate, startDate]);
 
   const summaries = useMemo(() => {
     const averageOccupancy =
