@@ -193,6 +193,7 @@ export function BookingsManagement() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formState, setFormState] = useState<BookingFormState>(createFormDefaults());
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const [viewMonth, setViewMonth] = useState<Date>(() => new Date(Date.UTC(2026, 2, 1)));
 
@@ -287,12 +288,14 @@ export function BookingsManagement() {
 
   const openCreate = () => {
     setFormError(null);
+    setActionMessage(null);
     setFormState(createFormDefaults());
     setIsFormOpen(true);
   };
 
   const openEdit = (booking: Booking) => {
     setFormError(null);
+    setActionMessage(null);
     setFormState(createFormFromBooking(booking));
     setIsFormOpen(true);
   };
@@ -300,6 +303,85 @@ export function BookingsManagement() {
   const closeForm = () => {
     setIsFormOpen(false);
     setFormError(null);
+    setActionMessage("Booking saved successfully.");
+  };
+
+  const checkoutBooking = (bookingId: string) => {
+    const booking = bookings.find((item) => item.id === bookingId);
+
+    if (!booking) {
+      return;
+    }
+
+    if (booking.status === "cancelled") {
+      setActionMessage("Cancelled bookings cannot be checked out.");
+      return;
+    }
+
+    if (booking.remainingAmount > 0) {
+      const shouldProceed = window.confirm(
+        `This booking has an unpaid balance of ${formatMoney(booking.remainingAmount)}. Continue checkout?`,
+      );
+
+      if (!shouldProceed) {
+        return;
+      }
+    }
+
+    const today = toIsoDate(new Date());
+    const updatedNights = Math.max(1, diffNights(booking.checkInDate, today));
+
+    setBookings((current) =>
+      current.map((item) => {
+        if (item.id !== bookingId) {
+          return item;
+        }
+
+        return {
+          ...item,
+          checkOut: today,
+          checkOutDate: today,
+          nights: updatedNights,
+        };
+      }),
+    );
+
+    setRooms((currentRooms) =>
+      currentRooms.map((room) => {
+        if (room.id !== booking.roomId) {
+          return room;
+        }
+
+        return {
+          ...room,
+          status: "cleaning",
+          currentGuestId: undefined,
+        };
+      }),
+    );
+
+    setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
+  };
+
+  const setRoomAvailable = (roomId: string) => {
+    setRooms((currentRooms) =>
+      currentRooms.map((room) => {
+        if (room.id !== roomId) {
+          return room;
+        }
+
+        if (room.currentGuestId) {
+          return room;
+        }
+
+        return {
+          ...room,
+          status: "available",
+        };
+      }),
+    );
+
+    setActionMessage("Room marked as available.");
   };
 
   const saveBooking = () => {
@@ -537,6 +619,14 @@ export function BookingsManagement() {
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
+                    onClick={() => checkoutBooking(booking.id)}
+                    disabled={booking.status === "cancelled"}
+                    className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Check-out
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => openEdit(booking)}
                     className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
                   >
@@ -550,6 +640,15 @@ export function BookingsManagement() {
                   >
                     Cancel
                   </button>
+                  {roomById.get(booking.roomId)?.status === "cleaning" ? (
+                    <button
+                      type="button"
+                      onClick={() => setRoomAvailable(booking.roomId)}
+                      className="h-8 rounded-md border border-emerald-200 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                    >
+                      Set Available
+                    </button>
+                  ) : null}
                 </div>
               ),
             },
@@ -560,6 +659,10 @@ export function BookingsManagement() {
           emptyTitle="No bookings found"
           emptyDescription="Try adjusting filters or create a new booking."
         />
+
+        {actionMessage ? (
+          <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{actionMessage}</p>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
