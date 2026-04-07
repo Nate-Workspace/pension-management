@@ -83,6 +83,15 @@ function isBookingActive(booking: Booking): boolean {
   return booking.status === "confirmed" && booking.checkInDate <= TODAY && booking.checkOutDate > TODAY;
 }
 
+function overlapsRange(
+  checkInDate: string,
+  checkOutDate: string,
+  otherCheckInDate: string,
+  otherCheckOutDate: string,
+): boolean {
+  return checkInDate < otherCheckOutDate && checkOutDate > otherCheckInDate;
+}
+
 export function GuestsManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [guests, setGuests] = useState<Guest[]>(initialGuests);
@@ -259,9 +268,35 @@ export function GuestsManagement() {
 
     const room = rooms.find((item) => item.id === roomSelection);
     const nights = Number(checkInNights);
+    const checkInDate = TODAY;
+    const checkOutDate = addDays(TODAY, nights);
 
     if (!room || !Number.isInteger(nights) || nights <= 0) {
       setActionMessage("Enter valid check-in details.");
+      return;
+    }
+
+    if (checkOutDate <= checkInDate) {
+      setActionMessage("Check-out date must be after check-in date.");
+      return;
+    }
+
+    const overlappingRoomBooking = bookings.find(
+      (booking) =>
+        booking.roomId === room.id &&
+        booking.status !== "cancelled" &&
+        overlapsRange(checkInDate, checkOutDate, booking.checkInDate, booking.checkOutDate),
+    );
+
+    if (overlappingRoomBooking) {
+      setActionMessage("This room is already booked for the selected dates.");
+      return;
+    }
+
+    const hasActiveStay = bookings.some((booking) => booking.guestId === selectedGuest.id && isBookingActive(booking));
+
+    if (hasActiveStay) {
+      setActionMessage("This guest already has an active booking.");
       return;
     }
 
@@ -292,10 +327,10 @@ export function GuestsManagement() {
       guestId: selectedGuest.id,
       roomId: room.id,
       status: "confirmed",
-      checkIn: TODAY,
-      checkOut: addDays(TODAY, nights),
-      checkInDate: TODAY,
-      checkOutDate: addDays(TODAY, nights),
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      checkInDate: checkInDate,
+      checkOutDate: checkOutDate,
       nights,
       totalAmount: room.price * nights,
       paidAmount: 0,
@@ -314,6 +349,23 @@ export function GuestsManagement() {
     if (!selectedGuest || !selectedGuestCurrentRoom) {
       setActionMessage("Selected guest has no active room to check out.");
       return;
+    }
+
+    const activeBooking = bookings.find(
+      (booking) =>
+        booking.guestId === selectedGuest.id &&
+        booking.roomId === selectedGuestCurrentRoom.id &&
+        isBookingActive(booking),
+    );
+
+    if (activeBooking?.remainingAmount && activeBooking.remainingAmount > 0) {
+      const shouldProceed = window.confirm(
+        `Unpaid balance: ${formatMoney(activeBooking.remainingAmount)}. Continue checkout?`,
+      );
+
+      if (!shouldProceed) {
+        return;
+      }
     }
 
     setRooms((currentRooms) =>
@@ -339,6 +391,7 @@ export function GuestsManagement() {
         ) {
           return {
             ...booking,
+            checkOut: TODAY,
             checkOutDate: TODAY,
             nights: Math.max(1, booking.nights),
           };
