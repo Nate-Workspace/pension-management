@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 
-import { bookings as initialBookings, guests, rooms } from "@/data";
+import { bookings as initialBookings, guests, rooms as initialRooms } from "@/data";
 import type { Booking, BookingStatus, Guest, Room } from "@/data";
 import { DataTable, FormSurface, MetricCard } from "@/components/ui";
 
@@ -16,6 +16,7 @@ type BookingFormState = {
   status: BookingStatus;
   checkInDate: string;
   checkOutDate: string;
+  paidAmount: string;
   source: Booking["source"];
 };
 
@@ -85,10 +86,11 @@ function bookingStatusStyle(status: BookingStatus): string {
 function createFormDefaults(): BookingFormState {
   return {
     guestId: guests[0]?.id ?? "",
-    roomId: rooms[0]?.id ?? "",
+    roomId: initialRooms[0]?.id ?? "",
     status: "confirmed",
     checkInDate: "2026-03-27",
     checkOutDate: "2026-03-29",
+    paidAmount: "0",
     source: "walk-in",
   };
 }
@@ -101,6 +103,7 @@ function createFormFromBooking(booking: Booking): BookingFormState {
     status: booking.status,
     checkInDate: booking.checkInDate,
     checkOutDate: booking.checkOutDate,
+    paidAmount: String(booking.paidAmount),
     source: booking.source,
   };
 }
@@ -158,9 +161,31 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
 }
 
+function overlapsRange(
+  checkInDate: string,
+  checkOutDate: string,
+  otherCheckInDate: string,
+  otherCheckOutDate: string,
+): boolean {
+  return checkInDate < otherCheckOutDate && checkOutDate > otherCheckInDate;
+}
+
+function derivePaymentStatus(totalAmount: number, paidAmount: number): Booking["paymentStatus"] {
+  if (paidAmount <= 0) {
+    return "unpaid";
+  }
+
+  if (paidAmount >= totalAmount) {
+    return "paid";
+  }
+
+  return "partial";
+}
+
 export function BookingsManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+  const [rooms, setRooms] = useState<Room[]>(initialRooms);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
@@ -182,7 +207,7 @@ export function BookingsManagement() {
   }, []);
 
   const guestById = useMemo(() => byId<Guest>(guests), []);
-  const roomById = useMemo(() => byId<Room>(rooms), []);
+  const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
   const visibleBookings = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -292,20 +317,61 @@ export function BookingsManagement() {
       return;
     }
 
+    const parsedPaidAmount = Number(formState.paidAmount);
+
+    if (!Number.isFinite(parsedPaidAmount) || parsedPaidAmount < 0) {
+      setFormError("Paid amount must be a valid non-negative number.");
+      return;
+    }
+
+    const overlapBooking = bookings.find(
+      (booking) =>
+        booking.id !== formState.id &&
+        booking.roomId === formState.roomId &&
+        booking.status !== "cancelled" &&
+        formState.status !== "cancelled" &&
+        overlapsRange(
+          formState.checkInDate,
+          formState.checkOutDate,
+          booking.checkInDate,
+          booking.checkOutDate,
+        ),
+    );
+
+    if (overlapBooking) {
+      setFormError(`Room already booked in this period (${overlapBooking.code}).`);
+      return;
+    }
+
     const nextAmount = room.pricePerNight * nights;
+    const boundedPaidAmount = Math.min(parsedPaidAmount, nextAmount);
+    const remainingAmount = Math.max(nextAmount - boundedPaidAmount, 0);
+    const paymentStatus = derivePaymentStatus(nextAmount, boundedPaidAmount);
+    const guest = guestById.get(formState.guestId);
 
     const nextBooking: Booking = {
       id: formState.id ?? `book-local-${bookings.length + 1}`,
       code: formState.id
         ? bookings.find((item) => item.id === formState.id)?.code ?? createBookingCode(bookings.length + 1)
         : createBookingCode(bookings.length + 1),
+      guest: {
+        name: guest ? `${guest.firstName} ${guest.lastName}` : "Unknown guest",
+        phone: guest?.phone ?? "",
+        id: guest?.nationalId,
+      },
       guestId: formState.guestId,
       roomId: formState.roomId,
       status: formState.status,
+      checkIn: formState.checkInDate,
+      checkOut: formState.checkOutDate,
       checkInDate: formState.checkInDate,
       checkOutDate: formState.checkOutDate,
       nights,
       totalAmount: nextAmount,
+      paidAmount: boundedPaidAmount,
+      remainingAmount,
+      paymentStatus,
+      dueDate: remainingAmount > 0 ? formState.checkOutDate : undefined,
       createdAt:
         formState.id
           ? bookings.find((item) => item.id === formState.id)?.createdAt ?? `${formState.checkInDate}T09:00:00Z`
@@ -320,6 +386,28 @@ export function BookingsManagement() {
 
       return current.map((item) => (item.id === formState.id ? nextBooking : item));
     });
+
+    setRooms((currentRooms) =>
+      currentRooms.map((currentRoom) => {
+        if (currentRoom.id !== formState.roomId) {
+          return currentRoom;
+        }
+
+        if (formState.status === "cancelled") {
+          return {
+            ...currentRoom,
+            status: "available",
+            currentGuestId: undefined,
+          };
+        }
+
+        return {
+          ...currentRoom,
+          status: "occupied",
+          currentGuestId: formState.guestId,
+        };
+      }),
+    );
 
     setIsFormOpen(false);
     setFormError(null);
@@ -647,6 +735,22 @@ export function BookingsManagement() {
                 <option value="pending">Pending</option>
                 <option value="cancelled">Cancelled</option>
               </select>
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Paid Amount</span>
+              <input
+                type="number"
+                min={0}
+                value={formState.paidAmount}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    paidAmount: event.target.value,
+                  }))
+                }
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              />
             </label>
 
             <label className="space-y-1">
