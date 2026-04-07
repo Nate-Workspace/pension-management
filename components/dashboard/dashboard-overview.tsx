@@ -47,6 +47,14 @@ type CheckInItem = {
   checkOutDate: string;
 };
 
+type AlertRow = {
+  id: string;
+  category: "checkout" | "payment" | "cleaning";
+  subject: string;
+  detail: string;
+  status: string;
+};
+
 const OPERATION_DATE = "2026-03-26";
 
 function formatCurrency(amount: number): string {
@@ -116,6 +124,30 @@ function statusLabel(status: BookingStatus): string {
 
 function isDateInsideStay(day: string, checkInDate: string, checkOutDate: string): boolean {
   return day >= checkInDate && day < checkOutDate;
+}
+
+function alertCategoryStyles(category: AlertRow["category"]): string {
+  if (category === "checkout") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (category === "payment") {
+    return "border-rose-200 bg-rose-50 text-rose-700";
+  }
+
+  return "border-sky-200 bg-sky-50 text-sky-700";
+}
+
+function alertCategoryLabel(category: AlertRow["category"]): string {
+  if (category === "checkout") {
+    return "Check-out Today";
+  }
+
+  if (category === "payment") {
+    return "Payment Follow-up";
+  }
+
+  return "Cleaning";
 }
 
 export function DashboardOverview() {
@@ -234,6 +266,53 @@ export function DashboardOverview() {
       });
   }, [guestById, roomById]);
 
+  const alerts = useMemo<AlertRow[]>(() => {
+    const checkoutTodayAlerts: AlertRow[] = bookings
+      .filter((booking) => booking.status !== "cancelled" && booking.checkOutDate === OPERATION_DATE)
+      .map((booking) => {
+        const guest = guestById.get(booking.guestId);
+        const room = roomById.get(booking.roomId);
+
+        return {
+          id: `checkout-${booking.id}`,
+          category: "checkout",
+          subject: guest ? `${guest.firstName} ${guest.lastName}` : booking.guest.name,
+          detail: `Room ${room?.number ?? "N/A"} checks out today (${dateLabel(OPERATION_DATE)})`,
+          status: statusLabel(booking.status),
+        };
+      });
+
+    const paymentAlerts: AlertRow[] = bookings
+      .filter(
+        (booking) =>
+          booking.status !== "cancelled" &&
+          (booking.paymentStatus === "unpaid" || booking.paymentStatus === "partial"),
+      )
+      .map((booking) => {
+        const guest = guestById.get(booking.guestId);
+
+        return {
+          id: `payment-${booking.id}`,
+          category: "payment",
+          subject: guest ? `${guest.firstName} ${guest.lastName}` : booking.guest.name,
+          detail: `${formatCurrency(booking.remainingAmount)} pending for booking ${booking.code}`,
+          status: booking.paymentStatus === "partial" ? "Partially Paid" : "Unpaid",
+        };
+      });
+
+    const cleaningRoomAlerts: AlertRow[] = rooms
+      .filter((room) => room.status === "cleaning")
+      .map((room) => ({
+        id: `cleaning-${room.id}`,
+        category: "cleaning",
+        subject: `Room ${room.number}`,
+        detail: "Room is marked for cleaning before next check-in",
+        status: "Cleaning",
+      }));
+
+    return [...checkoutTodayAlerts, ...paymentAlerts, ...cleaningRoomAlerts];
+  }, [guestById, roomById]);
+
   return (
     <div className="space-y-6">
       <section>
@@ -278,6 +357,57 @@ export function DashboardOverview() {
           title="Outstanding Payments"
           value={isLoading ? "--" : formatCurrency(metrics.outstandingPayments)}
           description="Open booking balances"
+        />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-slate-900">Operational Alerts</h2>
+          <p className="text-sm text-slate-500">
+            Highlights check-outs due today, unresolved payments, and rooms currently in cleaning.
+          </p>
+        </div>
+
+        <DataTable<AlertRow>
+          columns={[
+            {
+              key: "category",
+              header: "Alert Type",
+              render: (row) => (
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${alertCategoryStyles(row.category)}`}
+                >
+                  {alertCategoryLabel(row.category)}
+                </span>
+              ),
+            },
+            {
+              key: "subject",
+              header: "Subject",
+              render: (row) => row.subject,
+            },
+            {
+              key: "detail",
+              header: "Detail",
+              render: (row) => <span className="text-sm text-slate-600">{row.detail}</span>,
+            },
+            {
+              key: "status",
+              header: "Status",
+              align: "right",
+              render: (row) =>
+                row.category === "cleaning" ? (
+                  <StatusBadge status="cleaning" />
+                ) : (
+                  <span className="text-xs font-medium text-slate-700">{row.status}</span>
+                ),
+            },
+          ]}
+          data={alerts}
+          getRowKey={(row) => row.id}
+          isLoading={isLoading}
+          emptyTitle="No active alerts"
+          emptyDescription="All operations are currently up to date."
         />
       </section>
 
