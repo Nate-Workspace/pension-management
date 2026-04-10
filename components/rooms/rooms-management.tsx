@@ -478,7 +478,7 @@ export function RoomsManagement() {
           </div>
 
           <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Last cleaned by (optional)</span>
+            <span className="text-sm font-medium text-slate-700">Assigned to (optional)</span>
             <input
               type="text"
               value={formState.assignedTo}
