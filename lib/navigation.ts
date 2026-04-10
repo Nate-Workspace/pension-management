@@ -9,6 +9,5 @@ export const dashboardNavigation: NavItem[] = [
   { label: "Bookings", href: "/bookings" },
   { label: "Payments", href: "/payments" },
   { label: "Reports", href: "/reports" },
-  { label: "Staff", href: "/staff" },
   { label: "Settings", href: "/settings" },
 ];

@@ -22,6 +22,7 @@ type BookingFormState = {
   guestName: string;
   guestPhone: string;
   guestIdNumber: string;
+  handledBy: string;
   roomId: string;
   status: BookingStatus;
   checkInDate: string;
@@ -87,6 +88,7 @@ function createFormDefaults(roomList: Room[]): BookingFormState {
     guestName: "",
     guestPhone: "",
     guestIdNumber: "",
+    handledBy: "",
     roomId: roomList[0]?.id ?? "",
     status: "confirmed",
     checkInDate: "2026-03-27",
@@ -102,6 +104,7 @@ function createFormFromBooking(booking: Booking): BookingFormState {
     guestName: booking.guest.name,
     guestPhone: booking.guest.phone ?? "",
     guestIdNumber: booking.guest.idNumber ?? "",
+    handledBy: booking.handledBy ?? "",
     roomId: booking.roomId,
     status: booking.status,
     checkInDate: booking.checkInDate,
@@ -402,6 +405,7 @@ export function BookingsManagement() {
         phone: formState.guestPhone.trim() || undefined,
         idNumber: formState.guestIdNumber.trim() || undefined,
       },
+      handledBy: formState.handledBy.trim() || undefined,
       roomId: formState.roomId,
       status: formState.status,
       checkIn: formState.checkInDate,
@@ -525,6 +529,9 @@ export function BookingsManagement() {
                 <div>
                   <p className="font-medium text-slate-900">{booking.guest.name}</p>
                   {booking.guest.phone ? <p className="text-xs text-slate-500">{booking.guest.phone}</p> : null}
+                  {booking.handledBy ? (
+                    <p className="text-xs text-slate-500">Handled by: {booking.handledBy}</p>
+                  ) : null}
                 </div>
               ),
             },
@@ -715,6 +722,17 @@ export function BookingsManagement() {
               value={formState.guestName}
               onChange={(event) => setFormState((prev) => ({ ...prev, guestName: event.target.value }))}
               className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-sm font-medium text-slate-700">Handled by (optional)</span>
+            <input
+              type="text"
+              value={formState.handledBy}
+              onChange={(event) => setFormState((prev) => ({ ...prev, handledBy: event.target.value }))}
+              className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              placeholder="e.g. Front Desk A"
             />
           </label>
 

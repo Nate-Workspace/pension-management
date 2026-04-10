@@ -11,6 +11,7 @@ export type Room = {
   price: number;
   pricePerNight: number;
   capacity: number;
+  assignedTo?: string;
 };
 
 export type BookingGuestInfo = {
@@ -27,6 +28,7 @@ export type Booking = {
   id: string;
   code: string;
   guest: BookingGuestInfo;
+  handledBy?: string;
   roomId: Room["id"];
   status: BookingStatus;
   checkIn: string;
@@ -55,26 +57,4 @@ export type Payment = {
   status: PaymentStatus;
   paidAt?: string;
   reference: string;
-};
-
-export type StaffRole = "receptionist" | "cleaner";
-export type StaffTaskStatus = "todo" | "in_progress" | "done";
-
-export type StaffTask = {
-  id: string;
-  title: string;
-  roomId?: Room["id"];
-  dueAt: string;
-  status: StaffTaskStatus;
-};
-
-export type StaffMember = {
-  id: string;
-  name: string;
-  phone: string;
-  role: StaffRole;
-  shift: "morning" | "afternoon" | "night";
-  active: boolean;
-  assignedRoomIds: Room["id"][];
-  tasks: StaffTask[];
 };

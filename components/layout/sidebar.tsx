@@ -7,7 +7,6 @@ import {
   IconCreditCard,
   IconLayoutDashboard,
   IconSettings,
-  IconUserCog,
 } from "@tabler/icons-react";
 
 import type { NavItem } from "@/lib/navigation";
@@ -28,7 +27,6 @@ const navIcons: Record<string, ReactNode> = {
   "/bookings": <IconCalendarEvent size={18} stroke={1.8} />,
   "/payments": <IconCreditCard size={18} stroke={1.8} />,
   "/reports": <IconChartBar size={18} stroke={1.8} />,
-  "/staff": <IconUserCog size={18} stroke={1.8} />,
   "/settings": <IconSettings size={18} stroke={1.8} />,
 };
 

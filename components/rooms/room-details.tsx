@@ -340,6 +340,10 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
                 {activeBooking ? activeBooking.guest.name : "No active assignment"}
               </dd>
             </div>
+            <div className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last Cleaned By</dt>
+              <dd className="mt-1 text-sm font-medium text-slate-900">{room.assignedTo ?? "Not set"}</dd>
+            </div>
           </dl>
         </div>
 

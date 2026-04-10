@@ -18,6 +18,7 @@ type RoomFormState = {
   floor: string;
   type: RoomType;
   status: RoomStatus;
+  assignedTo: string;
   capacity: string;
   pricePerNight: string;
 };
@@ -43,6 +44,7 @@ function createDefaultFormState(): RoomFormState {
     floor: "1",
     type: "single",
     status: "available",
+    assignedTo: "",
     capacity: "1",
     pricePerNight: "25000",
   };
@@ -55,6 +57,7 @@ function createFormStateFromRoom(room: Room): RoomFormState {
     floor: String(room.floor),
     type: room.type,
     status: room.status,
+    assignedTo: room.assignedTo ?? "",
     capacity: String(room.capacity),
     pricePerNight: String(room.pricePerNight),
   };
@@ -202,6 +205,7 @@ export function RoomsManagement() {
       floor,
       type: formState.type,
       status: formState.status,
+      assignedTo: formState.assignedTo.trim() || undefined,
       capacity,
       price: pricePerNight,
       pricePerNight,
@@ -259,6 +263,10 @@ export function RoomsManagement() {
         const activeBooking = activeBookingByRoomId.get(room.id);
 
         if (!activeBooking) {
+          if (room.status === "cleaning" && room.assignedTo) {
+            return `Cleaning by ${room.assignedTo}`;
+          }
+
           return "Not occupied";
         }
 
@@ -468,6 +476,17 @@ export function RoomsManagement() {
               />
             </label>
           </div>
+
+          <label className="space-y-1">
+            <span className="text-sm font-medium text-slate-700">Last cleaned by (optional)</span>
+            <input
+              type="text"
+              value={formState.assignedTo}
+              onChange={(event) => setFormState((prev) => ({ ...prev, assignedTo: event.target.value }))}
+              className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
+              placeholder="e.g. Housekeeping A"
+            />
+          </label>
 
           {formError ? (
             <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
