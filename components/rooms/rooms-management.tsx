@@ -267,6 +267,10 @@ export function RoomsManagement() {
             return `Cleaning by ${room.assignedTo}`;
           }
 
+          if (room.status === "cleaning") {
+            return "Cleaning";
+          }
+
           return "Not occupied";
         }
 
